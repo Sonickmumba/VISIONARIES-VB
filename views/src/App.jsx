@@ -26,10 +26,11 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/groups" element={<Groups />} />
-                <Route path="/cycles" element={<Cycles />} />
-                <Route path="/loans" element={<Loans />} />
-                <Route path="/savings" element={<Savings />} />
+                <Route path="/dashboard/members" element={<Groups />} />
+                <Route path="/dashboard/record-savings" element={<Savings />} />
+                <Route path="/dashboard/disburse-loan" element={<Loans />} />
+                <Route path="/dashboard/record-repayment" element={<Cycles />} />
+                <Route path="/dashboard/shareout" element={<Cycles />} />
               </Route>
             </Route>
           </Routes>
