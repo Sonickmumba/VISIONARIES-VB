@@ -22,10 +22,10 @@ import { useDashboardStore } from "../store/dashboardStore";
 const currencyFormatter = new Intl.NumberFormat("en-ZM");
 
 const QUICK_ACTIONS = [
-  { label: "Record Savings", icon: PiggyBank, path: "/savings", color: "from-green-500 to-green-600" },
-  { label: "Manage Loans", icon: HandCoins, path: "/loans", color: "from-blue-500 to-blue-600" },
-  { label: "View Groups", icon: Users, path: "/groups", color: "from-purple-500 to-purple-600" },
-  { label: "Cycle Reports", icon: FileText, path: "/cycles", color: "from-orange-500 to-orange-600" },
+  { label: "Record Savings", icon: PiggyBank, path: "/dashboard/record-savings", color: "from-green-500 to-green-600" },
+  { label: "Manage Loans", icon: HandCoins, path: "/dashboard/disburse-loan", color: "from-blue-500 to-blue-600" },
+  { label: "View Groups", icon: Users, path: "/dashboard/members", color: "from-purple-500 to-purple-600" },
+  { label: "Cycle Reports", icon: FileText, path: "/dashboard/shareout", color: "from-orange-500 to-orange-600" },
 ];
 
 const ACTIVITY_COLORS = {
@@ -176,7 +176,7 @@ export function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            to="/groups"
+            to="/dashboard/members"
             className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
           >
             <Users className="w-4 h-4" />
@@ -302,7 +302,7 @@ export function Dashboard() {
           </div>
           {pendingActions.length > 0 ? (
             <Link
-              to="/loans"
+              to="/dashboard/disburse-loan"
               className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
             >
               Review pending loans
