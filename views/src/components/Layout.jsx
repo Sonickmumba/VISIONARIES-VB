@@ -9,6 +9,9 @@ import {
   HandCoins,
   Calendar,
   Menu,
+  DollarSign,
+  FileText,
+  HelpCircle,
   X,
   Moon,
   Sun,
@@ -17,12 +20,14 @@ import { motion, AnimatePresence } from "motion/react";
 import { useAuthStore } from "../store/authStore";
 
 const NAV_ITEMS = [
-  { path: "/dashboard", label: "Dashboard", icon: Home },
-  { path: "/groups", label: "Groups", icon: Users },
-  { path: "/cycles", label: "Cycles", icon: Calendar },
-  { path: "/loans", label: "Loans", icon: HandCoins },
-  { path: "/savings", label: "Savings", icon: PiggyBank },
-];
+    { path: "/dashboard", label: "Dashboard", icon: Home },
+  { path: "/dashboard/members", label: "Members", icon: Users },
+  { path: "/dashboard/record-savings", label: "Record Savings", icon: PiggyBank },
+  { path: "/dashboard/disburse-loan", label: "Disburse Loan", icon: DollarSign },
+  { path: "/dashboard/record-repayment", label: "Repayments", icon: HandCoins },
+  { path: "/dashboard/shareout", label: "Shareout", icon: FileText },
+    { path: "help", label: "Help", icon: HelpCircle },
+  ];
 
 const NavItem = memo(function NavItem({ item, active, onClick }) {
   const Icon = item.icon;
