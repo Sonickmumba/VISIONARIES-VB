@@ -7,6 +7,11 @@ const session = require('express-session');
 const passport = require('passport');
 const configurePassport = require('./config/passport');
 const authRoutes = require('./routes/authRoutes');
+const groupRoutes = require('./routes/groupRoutes');
+const cycleRoutes = require('./routes/cycleRoutes');
+const loanRoutes = require('./routes/loanRoutes');
+const savingsRoutes = require('./routes/savingsRoutes');
+const userRoutes = require('./routes/userRoutes');
 const app = express();
 require('dotenv').config();
 
@@ -52,6 +57,11 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/cycles', cycleRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/savings', savingsRoutes);
+app.use('/api/users', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
