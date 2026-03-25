@@ -21,6 +21,7 @@ module.exports = {
   LOAN_STATUS: {
     PENDING: 'pending',
     APPROVED: 'approved',
+    REJECTED: 'rejected',
     DISBURSED: 'disbursed',
     REPAID: 'repaid',
     DEFAULTED: 'defaulted',

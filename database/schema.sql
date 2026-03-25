@@ -49,6 +49,7 @@ CREATE TABLE cycles (
     total_savings DECIMAL(15, 2) DEFAULT 0,
     total_interest DECIMAL(15, 2) DEFAULT 0,
     total_fines DECIMAL(15, 2) DEFAULT 0,
+    closed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -82,7 +83,7 @@ CREATE TABLE loans (
     interest_amount DECIMAL(15, 2) NOT NULL,
     total_amount DECIMAL(15, 2) NOT NULL,
     purpose TEXT,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'disbursed', 'repaid', 'defaulted')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'disbursed', 'repaid', 'defaulted')),
     requested_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     approved_date TIMESTAMP,
     approved_by UUID REFERENCES users(id),

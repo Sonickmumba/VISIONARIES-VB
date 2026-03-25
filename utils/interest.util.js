@@ -66,9 +66,20 @@ const calculateShareout = (totalSavings, savingsInterest, commonInterest) => {
 /**
  * Calculate common interest distribution
  * Distributes surplus loan interest proportionally based on savings
+ * If totalSavings is 0, distributes evenly among members
  */
 const calculateCommonInterestDistribution = (members, totalCommonInterest) => {
   const totalSavings = members.reduce((sum, m) => sum + m.totalSavings, 0);
+  
+  // Handle zero savings case - distribute evenly
+  if (totalSavings === 0 || members.length === 0) {
+    const evenShare = members.length > 0 ? Math.round((totalCommonInterest / members.length) * 100) / 100 : 0;
+    return members.map(member => ({
+      userId: member.userId,
+      totalSavings: member.totalSavings,
+      commonInterestShare: evenShare,
+    }));
+  }
   
   return members.map(member => {
     const share = (member.totalSavings / totalSavings) * totalCommonInterest;

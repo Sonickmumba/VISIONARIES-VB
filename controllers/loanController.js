@@ -4,6 +4,11 @@ const { createNotification } = require('../utils/notification.util');
 const { calculateLoanInterest } = require('../utils/interest.util');
 const { NOTIFICATION_TYPES, LOAN_STATUS, TRANSACTION_TYPES } = require('../config/constants');
 
+const toNumber = (value) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+};
+
 /**
  * Create loan application
  */
@@ -13,6 +18,14 @@ exports.createLoan = async (req, res) => {
   try {
     const { cycleId, amount, purpose } = req.body;
     const userId = req.user.id;
+    const loanAmount = toNumber(amount);
+
+    if (loanAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Loan amount must be greater than 0',
+      });
+    }
 
     await client.query('BEGIN');
 
@@ -39,15 +52,15 @@ exports.createLoan = async (req, res) => {
     }
 
     // Calculate interest (minimum K3,000)
-    const interestAmount = calculateLoanInterest(amount);
-    const totalAmount = amount + interestAmount;
+    const interestAmount = calculateLoanInterest(loanAmount);
+    const totalAmount = loanAmount + interestAmount;
 
     // Create loan application
     const result = await client.query(
       `INSERT INTO loans (cycle_id, user_id, amount, interest_amount, total_amount, purpose, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [cycleId, userId, amount, interestAmount, totalAmount, purpose, LOAN_STATUS.PENDING]
+      [cycleId, userId, loanAmount, interestAmount, totalAmount, purpose, LOAN_STATUS.PENDING]
     );
 
     const loan = result.rows[0];
@@ -80,7 +93,7 @@ exports.createLoan = async (req, res) => {
         admin.id,
         NOTIFICATION_TYPES.SYSTEM_ALERT,
         'New Loan Application',
-        `A member has applied for a loan of K${amount.toFixed(2)}`,
+        `A member has applied for a loan of K${loanAmount.toFixed(2)}`,
         loan.id
       );
     }
@@ -251,6 +264,7 @@ exports.approveLoan = async (req, res) => {
     }
 
     const loan = loanResult.rows[0];
+  const loanAmount = toNumber(loan.amount);
 
     if (loan.status !== LOAN_STATUS.PENDING) {
       await client.query('ROLLBACK');
@@ -270,7 +284,7 @@ exports.approveLoan = async (req, res) => {
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $4
        RETURNING *`,
-      [status === 'approved' ? LOAN_STATUS.APPROVED : 'rejected', req.user.id, notes, id]
+      [status === 'approved' ? LOAN_STATUS.APPROVED : LOAN_STATUS.REJECTED, req.user.id, notes, id]
     );
 
     const updatedLoan = result.rows[0];
@@ -281,8 +295,8 @@ exports.approveLoan = async (req, res) => {
       : NOTIFICATION_TYPES.LOAN_REJECTED;
 
     const notificationMessage = status === 'approved'
-      ? `Your loan application of K${loan.amount.toFixed(2)} has been approved`
-      : `Your loan application of K${loan.amount.toFixed(2)} was rejected. ${notes || ''}`;
+      ? `Your loan application of K${loanAmount.toFixed(2)} has been approved`
+      : `Your loan application of K${loanAmount.toFixed(2)} was rejected. ${notes || ''}`;
 
     await createNotification(
       client,
@@ -351,6 +365,8 @@ exports.disburseLoan = async (req, res) => {
     }
 
     const loan = loanResult.rows[0];
+  const loanAmount = toNumber(loan.amount);
+  const loanTotalAmount = toNumber(loan.total_amount);
 
     if (loan.status !== LOAN_STATUS.APPROVED) {
       await client.query('ROLLBACK');
@@ -382,8 +398,8 @@ exports.disburseLoan = async (req, res) => {
       [loan.cycle_id, loan.user_id]
     );
 
-    const currentBalance = parseFloat(balanceResult.rows[0].balance);
-    const newBalance = currentBalance - loan.amount;
+    const currentBalance = toNumber(balanceResult.rows[0].balance);
+    const newBalance = currentBalance - loanAmount;
 
     // Create transaction for loan disbursement
     await client.query(
@@ -393,10 +409,10 @@ exports.disburseLoan = async (req, res) => {
         loan.cycle_id,
         loan.user_id,
         TRANSACTION_TYPES.LOAN_DISBURSEMENT,
-        loan.amount,
+        loanAmount,
         newBalance,
         loan.id,
-        `Loan disbursement - K${loan.amount.toFixed(2)}`,
+        `Loan disbursement - K${loanAmount.toFixed(2)}`,
         req.user.id,
       ]
     );
@@ -407,7 +423,7 @@ exports.disburseLoan = async (req, res) => {
       loan.user_id,
       NOTIFICATION_TYPES.SYSTEM_ALERT,
       'Loan Disbursed',
-      `Your loan of K${loan.amount.toFixed(2)} has been disbursed. Total repayment: K${loan.total_amount.toFixed(2)}`,
+      `Your loan of K${loanAmount.toFixed(2)} has been disbursed. Total repayment: K${loanTotalAmount.toFixed(2)}`,
       id
     );
 
@@ -452,6 +468,14 @@ exports.repayLoan = async (req, res) => {
   try {
     const { id } = req.params;
     const { amount, proofUrl, notes } = req.body;
+    const repaymentAmount = toNumber(amount);
+
+    if (repaymentAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Repayment amount must be greater than 0',
+      });
+    }
 
     await client.query('BEGIN');
 
@@ -484,7 +508,7 @@ exports.repayLoan = async (req, res) => {
       `INSERT INTO loan_repayments (loan_id, amount, proof_url, notes)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [id, amount, proofUrl, notes]
+      [id, repaymentAmount, proofUrl, notes]
     );
 
     const repayment = result.rows[0];
@@ -504,7 +528,7 @@ exports.repayLoan = async (req, res) => {
         admin.id,
         NOTIFICATION_TYPES.PAYMENT_DUE,
         'Loan Repayment Submitted',
-        `A member has submitted a loan repayment of K${amount.toFixed(2)}`,
+        `A member has submitted a loan repayment of K${repaymentAmount.toFixed(2)}`,
         repayment.id
       );
     }
@@ -568,12 +592,21 @@ exports.verifyRepayment = async (req, res) => {
     }
 
     const repayment = repaymentResult.rows[0];
+    const repaymentAmount = toNumber(repayment.amount);
 
-    // Get loan
+    // Get and lock loan row to prevent race conditions during repayment verification
     const loanResult = await client.query(
-      'SELECT * FROM loans WHERE id = $1',
+      'SELECT * FROM loans WHERE id = $1 FOR UPDATE',
       [id]
     );
+
+    if (loanResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        success: false,
+        message: 'Loan not found',
+      });
+    }
 
     const loan = loanResult.rows[0];
 
@@ -591,8 +624,9 @@ exports.verifyRepayment = async (req, res) => {
 
     // If verified, update loan and create transaction
     if (status === 'verified') {
-      const newAmountRepaid = parseFloat(loan.amount_repaid) + parseFloat(repayment.amount);
-      const isFullyRepaid = newAmountRepaid >= parseFloat(loan.total_amount);
+      const newAmountRepaid = toNumber(loan.amount_repaid) + repaymentAmount;
+      const isFullyRepaid = newAmountRepaid >= toNumber(loan.total_amount);
+      const shouldRecognizeInterest = isFullyRepaid && loan.status !== LOAN_STATUS.REPAID;
 
       // Update loan
       await client.query(
@@ -618,8 +652,8 @@ exports.verifyRepayment = async (req, res) => {
         [loan.cycle_id, loan.user_id]
       );
 
-      const currentBalance = parseFloat(balanceResult.rows[0].balance);
-      const newBalance = currentBalance + parseFloat(repayment.amount);
+      const currentBalance = toNumber(balanceResult.rows[0].balance);
+      const newBalance = currentBalance + repaymentAmount;
 
       // Create transaction
       await client.query(
@@ -629,27 +663,29 @@ exports.verifyRepayment = async (req, res) => {
           loan.cycle_id,
           loan.user_id,
           TRANSACTION_TYPES.LOAN_REPAYMENT,
-          repayment.amount,
+          repaymentAmount,
           newBalance,
           repaymentId,
-          `Loan repayment - K${repayment.amount.toFixed(2)}`,
+          `Loan repayment - K${repaymentAmount.toFixed(2)}`,
           req.user.id,
         ]
       );
 
-      // Update cycle interest
-      await client.query(
-        `UPDATE cycles 
-         SET total_interest = total_interest + $1,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [loan.interest_amount, loan.cycle_id]
-      );
+      // Recognize loan interest once, when loan is first marked as fully repaid
+      if (shouldRecognizeInterest) {
+        await client.query(
+          `UPDATE cycles 
+           SET total_interest = total_interest + $1,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [toNumber(loan.interest_amount), loan.cycle_id]
+        );
+      }
 
       // Notify member
       const notificationMessage = isFullyRepaid
         ? `Your loan has been fully repaid. Thank you!`
-        : `Your loan repayment of K${repayment.amount.toFixed(2)} has been verified`;
+        : `Your loan repayment of K${repaymentAmount.toFixed(2)} has been verified`;
 
       await createNotification(
         client,

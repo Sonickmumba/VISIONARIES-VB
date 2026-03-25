@@ -8,8 +8,7 @@ const router = express.Router();
 
 // Validation rules
 const updateUserValidation = [
-  body('firstName').optional().trim().notEmpty().withMessage('First name cannot be empty'),
-  body('lastName').optional().trim().notEmpty().withMessage('Last name cannot be empty'),
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
   body('phone').optional().trim(),
   body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
 ];

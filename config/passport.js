@@ -21,7 +21,7 @@ const configurePassport = () => {
       async (req, email, password, done) => {
         try {
           const normalizedEmail = normalizeEmail(email);
-          const { name, nationalId, phone, role } = req.body;
+          const { name, nationalId, phone } = req.body;
 
           if (!normalizedEmail || !password || !name || !nationalId) {
             return done(null, false, {
@@ -41,7 +41,7 @@ const configurePassport = () => {
             `INSERT INTO users (email, password_hash, name, national_id, phone, role)
              VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id, email, name, national_id, phone, role, is_active, created_at`,
-            [normalizedEmail, passwordHash, name, nationalId, phone || null, role || DEFAULT_ROLE]
+            [normalizedEmail, passwordHash, name, nationalId, phone || null, DEFAULT_ROLE]
           );
 
           return done(null, result.rows[0]);

@@ -6,7 +6,7 @@ const {
   calculateCommonInterestDistribution,
   calculateShareout: calculateShareoutAmount,
 } = require('../utils/interest.util');
-const { NOTIFICATION_TYPES } = require('../config/constants');
+const { NOTIFICATION_TYPES, TRANSACTION_TYPES } = require('../config/constants');
 
 /**
  * Create cycle
@@ -308,43 +308,112 @@ exports.closeCycle = async (req, res) => {
       });
     }
 
-    // Calculate and distribute interest
+    // Calculate and distribute savings interest
     const savingsResult = await client.query(
-      `SELECT s.*, u.email, u.first_name, u.last_name
+      `SELECT s.*, u.email
        FROM savings s
        INNER JOIN users u ON s.user_id = u.id
-       WHERE s.cycle_id = $1 AND s.status = 'verified'`,
+       WHERE s.cycle_id = $1 AND s.status = 'verified'
+       ORDER BY s.user_id`,
       [id]
     );
 
     const savings = savingsResult.rows;
+    const memberSavingsMap = {}; // Map to aggregate savings by user
+    let totalCycleInterest = 0;
 
-    if (savings.length > 0) {
-      // Calculate interest for each member
-      const interestCalculations = await calculateSavingsInterest(
-        client,
-        id,
-        savings
+    // Calculate interest for each saving and update the savings record
+    for (const saving of savings) {
+      // Calculate months elapsed (assuming cycle is 12 months)
+      const monthsElapsed = 12 - saving.month + 1;
+      const interestEarned = calculateSavingsInterest(saving.amount, monthsElapsed);
+      totalCycleInterest += interestEarned;
+
+      // Update savings record with calculated interest
+      await client.query(
+        `UPDATE savings 
+         SET interest_earned = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [interestEarned, saving.id]
       );
 
-      // Distribute common fund interest
-      await calculateCommonInterestDistribution(
-        client,
-        id,
-        cycle.group_id,
-        interestCalculations
+      // Aggregate member totals
+      if (!memberSavingsMap[saving.user_id]) {
+        memberSavingsMap[saving.user_id] = {
+          userId: saving.user_id,
+          email: saving.email,
+          totalSavings: 0,
+          totalInterest: 0,
+        };
+      }
+      memberSavingsMap[saving.user_id].totalSavings += saving.amount;
+      memberSavingsMap[saving.user_id].totalInterest += interestEarned;
+    }
+
+    const members = Object.values(memberSavingsMap);
+    let totalCommonInterest = 0;
+
+    // Calculate total common interest from loan repayments
+    const loanInterestResult = await client.query(
+      `SELECT COALESCE(SUM(interest_amount), 0) as total_interest
+       FROM loans
+       WHERE cycle_id = $1 AND status IN ('repaid', 'defaulted')`,
+      [id]
+    );
+
+    totalCommonInterest = parseFloat(loanInterestResult.rows[0].total_interest) || 0;
+
+    // Distribute common interest proportionally
+    let commonInterestDistributions = [];
+    if (members.length > 0 && totalCommonInterest > 0) {
+      commonInterestDistributions = calculateCommonInterestDistribution(
+        members,
+        totalCommonInterest
+      );
+
+      // Insert common interest distributions into DB
+      for (const distribution of commonInterestDistributions) {
+        await client.query(
+          `INSERT INTO common_interest_distributions (cycle_id, user_id, amount, notes)
+           VALUES ($1, $2, $3, $4)`,
+          [id, distribution.userId, distribution.commonInterestShare, 'Cycle closeout distribution']
+        );
+      }
+    }
+
+    // Create shareout records for each member
+    for (const member of members) {
+      const commonShare = commonInterestDistributions.find(d => d.userId === member.userId);
+      const totalAmount = calculateShareoutAmount(
+        member.totalSavings,
+        member.totalInterest,
+        commonShare?.commonInterestShare || 0
+      );
+
+      await client.query(
+        `INSERT INTO shareouts (cycle_id, user_id, total_savings, total_interest, common_interest, total_amount, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'calculated')`,
+        [id, member.userId, member.totalSavings, member.totalInterest, commonShare?.commonInterestShare || 0, totalAmount]
       );
     }
+
+    // Update cycle totals
+    const cycleTotals = {
+      total_savings: members.reduce((sum, m) => sum + m.totalSavings, 0),
+      total_interest: totalCycleInterest + totalCommonInterest,
+    };
 
     // Close cycle
     const result = await client.query(
       `UPDATE cycles 
        SET status = 'closed',
            closed_at = CURRENT_TIMESTAMP,
+           total_savings = $1,
+           total_interest = $2,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1
+       WHERE id = $3
        RETURNING *`,
-      [id]
+      [cycleTotals.total_savings, cycleTotals.total_interest, id]
     );
 
     const closedCycle = result.rows[0];
@@ -375,7 +444,7 @@ exports.closeCycle = async (req, res) => {
       memberIds,
       NOTIFICATION_TYPES.SYSTEM_ALERT,
       'Cycle Closed',
-      `The savings cycle "${cycle.name}" has been closed`,
+      `The savings cycle "${cycle.name}" has been closed. Total savings: K${cycleTotals.total_savings.toFixed(2)}, Interest: K${cycleTotals.total_interest.toFixed(2)}`,
       id
     );
 
@@ -586,8 +655,9 @@ exports.getCycleStatistics = async (req, res) => {
       `SELECT 
         SUM(amount) as total_interest
        FROM transactions
-       WHERE cycle_id = $1 AND transaction_type = 'interest_earned'`,
-      [id]
+       WHERE cycle_id = $1
+         AND type IN ($2, $3)`,
+      [id, TRANSACTION_TYPES.INTEREST_PAYMENT, TRANSACTION_TYPES.COMMON_INTEREST]
     );
 
     res.json({

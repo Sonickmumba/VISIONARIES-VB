@@ -9,7 +9,7 @@ exports.getAllUsers = async (req, res) => {
     const { role, isActive, search } = req.query;
 
     let query = `
-      SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.role, u.is_active, u.created_at,
+      SELECT u.id, u.email, u.name, u.phone, u.role, u.is_active, u.created_at,
              g.id as group_id, g.name as group_name
       FROM users u
       LEFT JOIN group_members gm ON u.id = gm.user_id AND gm.is_active = true
@@ -33,12 +33,12 @@ exports.getAllUsers = async (req, res) => {
     }
 
     if (search) {
-      query += ` AND (u.first_name ILIKE $${paramCount} OR u.last_name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`;
+      query += ` AND (u.name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`;
       params.push(`%${search}%`);
       paramCount++;
     }
 
-    query += ' ORDER BY u.last_name, u.first_name';
+    query += ' ORDER BY u.name';
 
     const result = await db.query(query, params);
 
@@ -63,7 +63,7 @@ exports.getUserById = async (req, res) => {
     const { id } = req.params;
 
     const result = await db.query(
-      `SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.role, u.is_active, u.created_at, u.updated_at,
+      `SELECT u.id, u.email, u.name, u.phone, u.role, u.is_active, u.created_at, u.updated_at,
               g.id as group_id, g.name as group_name
        FROM users u
        LEFT JOIN group_members gm ON u.id = gm.user_id AND gm.is_active = true
@@ -100,7 +100,7 @@ exports.updateUser = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { firstName, lastName, phone, email } = req.body;
+    const { name, phone, email } = req.body;
 
     await client.query('BEGIN');
 
@@ -139,14 +139,13 @@ exports.updateUser = async (req, res) => {
     // Update user
     const result = await client.query(
       `UPDATE users 
-       SET first_name = COALESCE($1, first_name),
-           last_name = COALESCE($2, last_name),
-           phone = COALESCE($3, phone),
-           email = COALESCE($4, email),
+       SET name = COALESCE($1, name),
+           phone = COALESCE($2, phone),
+           email = COALESCE($3, email),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5
-       RETURNING id, email, first_name, last_name, phone, role, is_active, created_at, updated_at`,
-      [firstName, lastName, phone, email, id]
+       WHERE id = $4
+       RETURNING id, email, name, phone, role, is_active, created_at, updated_at`,
+      [name, phone, email, id]
     );
 
     const user = result.rows[0];
@@ -217,7 +216,7 @@ exports.updateUserRole = async (req, res) => {
        SET role = $1,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $2
-       RETURNING id, email, first_name, last_name, phone, role, is_active, created_at, updated_at`,
+       RETURNING id, email, name, phone, role, is_active, created_at, updated_at`,
       [role, id]
     );
 
@@ -288,7 +287,7 @@ exports.toggleUserStatus = async (req, res) => {
        SET is_active = NOT is_active,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
-       RETURNING id, email, first_name, last_name, phone, role, is_active, created_at, updated_at`,
+       RETURNING id, email, name, phone, role, is_active, created_at, updated_at`,
       [id]
     );
 
