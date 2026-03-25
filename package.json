@@ -7,7 +7,11 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "db:init": "node scripts/dbInit.js",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "frontend:install": "cd views && npm install",
+    "frontend:dev": "cd views && npm run dev",
+    "frontend:build": "cd views && npm run build",
+    "dev:all": "concurrently \"npm run dev\" \"npm run frontend:dev\""
   },
   "keywords": [],
   "author": "",
