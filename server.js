@@ -1,6 +1,9 @@
 const express = require('express');
 
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 
@@ -28,6 +31,8 @@ const corsOptions = {
 };
 
 // Middleware
+app.use(helmet());
+app.use(morgan('dev'));
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(cookieParser(process.env.COOKIE_SECRET));
@@ -50,6 +55,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 app.use(passport.session());
 
+
+// Logging middleware
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+  });
+});
+
 // Routes
 app.get('/', (req, res) => {
   req.session.lastSeenAt = new Date().toISOString();
@@ -65,12 +87,29 @@ app.use('/api/users', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Error:', err);
+
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+
+  res.status(statusCode).json({
+    success: false,
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
 });
 
 // Start server
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`
+🚀 VISIONARIES VB Backend Server Running
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 Port: ${PORT}
+🌍 Environment: ${process.env.NODE_ENV || 'development'}
+🔗 URL: http://localhost:${PORT}
+📊 Health: http://localhost:${PORT}/health
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  `);
 });
