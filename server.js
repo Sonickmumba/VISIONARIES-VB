@@ -6,8 +6,10 @@ const morgan = require('morgan');
 
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
 
 const passport = require('passport');
+const db = require('./config/database');
 const configurePassport = require('./config/passport');
 const authRoutes = require('./routes/authRoutes');
 const groupRoutes = require('./routes/groupRoutes');
@@ -21,6 +23,13 @@ require('dotenv').config();
 configurePassport();
 
 const isProduction = process.env.NODE_ENV === 'production';
+const sessionSecret = process.env.SESSION_SECRET;
+
+if (isProduction && !sessionSecret) {
+  throw new Error('SESSION_SECRET must be set when NODE_ENV=production');
+}
+
+const resolvedSessionSecret = sessionSecret || 'visionaries-dev-session-secret';
 const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
   : true;
@@ -32,16 +41,20 @@ const corsOptions = {
 
 // Middleware
 app.use(helmet());
-app.use(morgan('dev'));
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use(
   session({
     name: 'visionaries.sid',
-    secret: process.env.SESSION_SECRET || 'visionaries-dev-session-secret',
+    secret: resolvedSessionSecret,
     resave: false,
     saveUninitialized: false,
+    store: new PgSession({
+      pool: db.pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: true,
+    }),
     cookie: {
       httpOnly: true,
       secure: isProduction,

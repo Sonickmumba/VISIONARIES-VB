@@ -20,6 +20,11 @@ const createNotification = async (client, userId, type, title, message, referenc
  * Create notifications for multiple users
  */
 const createBulkNotifications = async (client, userIds, type, title, message, referenceId = null) => {
+  // Return early if no users to notify
+  if (!userIds || userIds.length === 0) {
+    return;
+  }
+
   try {
     const values = userIds.map((userId, index) => {
       const offset = index * 5;

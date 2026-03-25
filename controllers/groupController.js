@@ -69,13 +69,13 @@ exports.getAllGroups = async (req, res) => {
   try {
     const result = await db.query(
       `SELECT g.*,
-              u.first_name as leader_first_name, u.last_name as leader_last_name,
+              u.name as leader_name,
               COUNT(DISTINCT gm.user_id) as member_count
        FROM groups g
        LEFT JOIN users u ON g.leader_id = u.id
        LEFT JOIN group_members gm ON g.id = gm.group_id AND gm.is_active = true
        WHERE g.is_active = true
-       GROUP BY g.id, u.first_name, u.last_name
+       GROUP BY g.id, u.name
        ORDER BY g.name`
     );
 
@@ -102,7 +102,7 @@ exports.getGroupById = async (req, res) => {
     // Get group details
     const groupResult = await db.query(
       `SELECT g.*,
-              u.first_name as leader_first_name, u.last_name as leader_last_name, u.email as leader_email
+              u.name as leader_name, u.email as leader_email
        FROM groups g
        LEFT JOIN users u ON g.leader_id = u.id
        WHERE g.id = $1`,
@@ -118,11 +118,11 @@ exports.getGroupById = async (req, res) => {
 
     // Get group members
     const membersResult = await db.query(
-      `SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.role, gm.joined_at
+      `SELECT u.id, u.email, u.name, u.phone, u.role, gm.joined_at
        FROM group_members gm
        INNER JOIN users u ON gm.user_id = u.id
        WHERE gm.group_id = $1 AND gm.is_active = true
-       ORDER BY u.last_name, u.first_name`,
+       ORDER BY u.name`,
       [id]
     );
 

@@ -4,6 +4,11 @@ const { createNotification } = require('../utils/notification.util');
 const { calculateSavingsInterest } = require('../utils/interest.util');
 const { NOTIFICATION_TYPES, TRANSACTION_TYPES } = require('../config/constants');
 
+const toNumber = (value) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+};
+
 /**
  * Create savings record
  */
@@ -12,6 +17,14 @@ exports.createSavings = async (req, res) => {
 
   try {
     const { cycleId, userId, amount, month, year, proofUrl, notes } = req.body;
+    const savingsAmount = toNumber(amount);
+
+    if (savingsAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Savings amount must be greater than 0',
+      });
+    }
 
     await client.query('BEGIN');
 
@@ -56,7 +69,7 @@ exports.createSavings = async (req, res) => {
       `INSERT INTO savings (cycle_id, user_id, amount, month, year, proof_url, notes, payment_date)
        VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [cycleId, userId, amount, month, year, proofUrl, notes]
+      [cycleId, userId, savingsAmount, month, year, proofUrl, notes]
     );
 
     const savings = result.rows[0];
@@ -89,7 +102,7 @@ exports.createSavings = async (req, res) => {
         admin.id,
         NOTIFICATION_TYPES.PAYMENT_DUE,
         'New Savings Submission',
-        `A member has submitted savings of K${amount.toFixed(2)} for ${month}/${year}`,
+        `A member has submitted savings of K${savingsAmount.toFixed(2)} for ${month}/${year}`,
         savings.id
       );
     }
@@ -135,7 +148,7 @@ exports.getSavingsByCycle = async (req, res) => {
     // Calculate interest for each savings
     const savingsWithInterest = result.rows.map(saving => {
       const monthsElapsed = 12 - saving.month; // Simplified - should calculate from actual dates
-      const interest = calculateSavingsInterest(saving.amount, monthsElapsed);
+      const interest = calculateSavingsInterest(toNumber(saving.amount), monthsElapsed);
       
       return {
         ...saving,
@@ -329,6 +342,7 @@ exports.verifySavings = async (req, res) => {
     }
 
     const savings = savingsResult.rows[0];
+  const savingsAmount = toNumber(savings.amount);
 
     // Update verification status
     const result = await client.query(
@@ -355,8 +369,8 @@ exports.verifySavings = async (req, res) => {
         [savings.cycle_id, savings.user_id]
       );
 
-      const currentBalance = parseFloat(balanceResult.rows[0].balance);
-      const newBalance = currentBalance + savings.amount;
+      const currentBalance = toNumber(balanceResult.rows[0].balance);
+      const newBalance = currentBalance + savingsAmount;
 
       // Create transaction
       await client.query(
@@ -366,7 +380,7 @@ exports.verifySavings = async (req, res) => {
           savings.cycle_id,
           savings.user_id,
           TRANSACTION_TYPES.SAVINGS,
-          savings.amount,
+          savingsAmount,
           newBalance,
           savings.id,
           `Savings for ${savings.month}/${savings.year}`,
@@ -380,7 +394,7 @@ exports.verifySavings = async (req, res) => {
          SET total_savings = total_savings + $1,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $2`,
-        [savings.amount, savings.cycle_id]
+        [savingsAmount, savings.cycle_id]
       );
     }
 
@@ -390,7 +404,7 @@ exports.verifySavings = async (req, res) => {
       : NOTIFICATION_TYPES.PAYMENT_REJECTED;
     
     const notificationMessage = status === 'verified'
-      ? `Your savings of K${savings.amount.toFixed(2)} for ${savings.month}/${savings.year} has been verified`
+      ? `Your savings of K${savingsAmount.toFixed(2)} for ${savings.month}/${savings.year} has been verified`
       : `Your savings submission for ${savings.month}/${savings.year} was rejected. ${notes || ''}`;
 
     await createNotification(

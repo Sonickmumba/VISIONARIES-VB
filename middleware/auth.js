@@ -24,7 +24,7 @@ const authenticate = async (req, res, next) => {
 
     // Get user from database
     const result = await db.query(
-      'SELECT id, email, first_name, last_name, phone, role, is_active FROM users WHERE id = $1',
+      'SELECT id, email, name, phone, role, is_active FROM users WHERE id = $1',
       [decoded.userId]
     );
 
