@@ -11,6 +11,7 @@ const generateToken = (userId, role) =>
 
 const toUserPayload = (user) => ({
   id: user.id,
+  memberNo: user.member_no,
   email: user.email,
   name: user.name,
   nationalId: user.national_id,
@@ -201,7 +202,7 @@ const getCurrentUser = async (req, res) => {
     }
 
     const result = await db.query(
-      'SELECT id, email, name, national_id, phone, role, is_active, created_at FROM users WHERE id = $1',
+      'SELECT id, member_no, email, name, national_id, phone, role, is_active, created_at FROM users WHERE id = $1',
       [userId]
     );
 

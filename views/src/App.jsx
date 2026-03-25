@@ -3,7 +3,8 @@ import Layout from './components/Layout'
 import { ProtectedRoute, PublicOnlyRoute } from './components/RouteGuards'
 import { Welcome } from './pages/Welcome'
 import Dashboard from './pages/Dashboard'
-import Groups from './pages/Groups'
+import Members from './pages/Members'
+import { MemberDetail } from './pages/MemberDetails'
 import Cycles from './pages/Cycles'
 import Loans from './pages/Loans'
 import Savings from './pages/Savings'
@@ -26,7 +27,8 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/dashboard/members" element={<Groups />} />
+                <Route path="/dashboard/members" element={<Members />} />
+                <Route path="/dashboard/members/:memberId" element={<MemberDetail />} />
                 <Route path="/dashboard/record-savings" element={<Savings />} />
                 <Route path="/dashboard/disburse-loan" element={<Loans />} />
                 <Route path="/dashboard/record-repayment" element={<Cycles />} />

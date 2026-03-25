@@ -40,7 +40,7 @@ const configurePassport = () => {
           const result = await db.query(
             `INSERT INTO users (email, password_hash, name, national_id, phone, role)
              VALUES ($1, $2, $3, $4, $5, $6)
-             RETURNING id, email, name, national_id, phone, role, is_active, created_at`,
+             RETURNING id, member_no, email, name, national_id, phone, role, is_active, created_at`,
             [normalizedEmail, passwordHash, name, nationalId, phone || null, DEFAULT_ROLE]
           );
 
@@ -94,7 +94,7 @@ const configurePassport = () => {
   passport.deserializeUser(async (id, done) => {
     try {
       const result = await db.query(
-        'SELECT id, email, name, national_id, phone, role, is_active, created_at FROM users WHERE id = $1',
+        'SELECT id, member_no, email, name, national_id, phone, role, is_active, created_at FROM users WHERE id = $1',
         [id]
       );
       return done(null, result.rows[0] || false);

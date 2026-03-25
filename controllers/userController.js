@@ -23,7 +23,7 @@ exports.getAllUsers = async (req, res) => {
     const { role, isActive, search } = req.query;
 
     let query = `
-      SELECT u.id, u.email, u.name, u.phone, u.role, u.is_active, u.created_at,
+      SELECT u.id, u.email, u.name, u.phone, u.role, u.is_active, u.created_at, u.member_no,
              g.id as group_id, g.name as group_name
       FROM users u
       LEFT JOIN group_members gm ON u.id = gm.user_id AND gm.is_active = true
@@ -77,7 +77,7 @@ exports.getUserById = async (req, res) => {
     const { id } = req.params;
 
     const result = await db.query(
-      `SELECT u.id, u.email, u.name, u.phone, u.role, u.is_active, u.created_at, u.updated_at,
+      `SELECT u.id, u.email, u.name, u.phone, u.role, u.is_active, u.created_at, u.updated_at, u.member_no,
               g.id as group_id, g.name as group_name
        FROM users u
        LEFT JOIN group_members gm ON u.id = gm.user_id AND gm.is_active = true
@@ -102,6 +102,140 @@ exports.getUserById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error retrieving user',
+    });
+  }
+};
+
+/**
+ * Get detailed member profile with current cycle financial summary
+ */
+exports.getMemberDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const detailQuery = `
+      WITH member_base AS (
+        SELECT
+          u.id,
+          u.member_no,
+          u.email,
+          u.name,
+          u.phone,
+          u.national_id,
+          u.role,
+          u.is_active,
+          u.created_at,
+          u.updated_at,
+          g.id AS group_id,
+          g.name AS group_name,
+          active_cycle.id AS cycle_id,
+          active_cycle.name AS cycle_name,
+          active_cycle.start_date AS cycle_start_date,
+          active_cycle.end_date AS cycle_end_date,
+          active_cycle.status AS cycle_status
+        FROM users u
+        LEFT JOIN group_members gm
+          ON u.id = gm.user_id
+         AND gm.is_active = true
+        LEFT JOIN groups g
+          ON gm.group_id = g.id
+         AND g.is_active = true
+        LEFT JOIN LATERAL (
+          SELECT c.id, c.name, c.start_date, c.end_date, c.status
+          FROM cycles c
+          WHERE c.group_id = g.id
+            AND c.status = 'active'
+          ORDER BY c.start_date DESC, c.created_at DESC
+          LIMIT 1
+        ) active_cycle ON true
+        WHERE u.id = $1
+      )
+      SELECT
+        mb.*,
+        COALESCE(s.total_savings, 0) AS total_savings,
+        COALESCE(s.total_savings_interest, 0) AS total_savings_interest,
+        COALESCE(s.verified_savings_count, 0) AS verified_savings_count,
+        COALESCE(s.pending_savings_count, 0) AS pending_savings_count,
+        COALESCE(l.total_loan_borrowed, 0) AS total_loan_borrowed,
+        COALESCE(l.outstanding_loan, 0) AS outstanding_loan,
+        COALESCE(l.active_loans_count, 0) AS active_loans_count,
+        COALESCE(l.pending_loans_count, 0) AS pending_loans_count,
+        GREATEST(20000 - COALESCE(s.total_savings, 0), 0) AS shortfall,
+        COALESCE(ci.common_interest_amount, 0) AS common_interest_amount
+      FROM member_base mb
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(SUM(CASE WHEN sv.status = 'verified' THEN sv.amount ELSE 0 END), 0) AS total_savings,
+          COALESCE(SUM(CASE WHEN sv.status = 'verified' THEN sv.interest_earned ELSE 0 END), 0) AS total_savings_interest,
+          COUNT(*) FILTER (WHERE sv.status = 'verified') AS verified_savings_count,
+          COUNT(*) FILTER (WHERE sv.status = 'pending') AS pending_savings_count
+        FROM savings sv
+        WHERE sv.user_id = mb.id
+          AND (mb.cycle_id IS NULL OR sv.cycle_id = mb.cycle_id)
+      ) s ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(SUM(CASE WHEN ln.status IN ('approved', 'disbursed', 'repaid', 'defaulted') THEN ln.amount ELSE 0 END), 0) AS total_loan_borrowed,
+          COALESCE(SUM(CASE WHEN ln.status IN ('approved', 'disbursed', 'defaulted', 'repaid') THEN GREATEST(ln.total_amount - COALESCE(ln.amount_repaid, 0), 0) ELSE 0 END), 0) AS outstanding_loan,
+          COUNT(*) FILTER (WHERE ln.status IN ('approved', 'disbursed', 'defaulted')) AS active_loans_count,
+          COUNT(*) FILTER (WHERE ln.status = 'pending') AS pending_loans_count
+        FROM loans ln
+        WHERE ln.user_id = mb.id
+          AND (mb.cycle_id IS NULL OR ln.cycle_id = mb.cycle_id)
+      ) l ON true
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(cid.amount), 0) AS common_interest_amount
+        FROM common_interest_distributions cid
+        WHERE cid.user_id = mb.id
+          AND (mb.cycle_id IS NULL OR cid.cycle_id = mb.cycle_id)
+      ) ci ON true
+    `;
+
+    const detailResult = await db.query(detailQuery, [id]);
+
+    if (detailResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    const member = detailResult.rows[0];
+
+    const [recentSavingsResult, recentLoansResult] = await Promise.all([
+      db.query(
+        `SELECT id, amount, month, year, status, payment_date, created_at
+         FROM savings
+         WHERE user_id = $1
+           AND ($2::uuid IS NULL OR cycle_id = $2)
+         ORDER BY year DESC, month DESC, created_at DESC
+         LIMIT 6`,
+        [id, member.cycle_id || null]
+      ),
+      db.query(
+        `SELECT id, amount, total_amount, amount_repaid, status, purpose, requested_date, due_date, created_at
+         FROM loans
+         WHERE user_id = $1
+           AND ($2::uuid IS NULL OR cycle_id = $2)
+         ORDER BY requested_date DESC, created_at DESC
+         LIMIT 6`,
+        [id, member.cycle_id || null]
+      ),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        ...member,
+        recent_savings: recentSavingsResult.rows,
+        recent_loans: recentLoansResult.rows,
+      },
+    });
+  } catch (error) {
+    console.error('Get member details error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error retrieving member details',
     });
   }
 };
