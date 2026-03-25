@@ -4,7 +4,7 @@ import axios from 'axios';
 
 export const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
 
@@ -17,9 +17,20 @@ export const useAuthStore = create(
         return user;
       },
 
-      logout: () => {
-        delete axios.defaults.headers.common['Authorization'];
-        set({ user: null, token: null });
+      logout: async () => {
+        let logoutError = null;
+        try {
+          if (get().token) {
+            await axios.post('/api/auth/logout');
+          }
+        } catch (error) {
+          logoutError = error;
+        } finally {
+          delete axios.defaults.headers.common['Authorization'];
+          set({ user: null, token: null });
+        }
+
+        return { success: !logoutError, error: logoutError };
       },
 
       // Rehydrate axios header after a page refresh
