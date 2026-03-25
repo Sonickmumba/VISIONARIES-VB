@@ -46,6 +46,7 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
 
   const user = useAuthStore((state) => state.user);
@@ -69,9 +70,17 @@ export function Layout() {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setMobileMenuOpen(false);
+      setIsLoggingOut(false);
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
@@ -115,11 +124,12 @@ export function Layout() {
 
               <button
                 onClick={handleLogout}
+                disabled={isLoggingOut}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                 type="button"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+                <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
               </button>
             </div>
 
@@ -204,11 +214,12 @@ export function Layout() {
 
                 <button
                   onClick={handleLogout}
+                  disabled={isLoggingOut}
                   className="flex items-center gap-3 px-3 py-3 mt-2 w-full text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                   type="button"
                 >
                   <LogOut className="w-5 h-5" />
-                  <span className="text-sm font-medium">Logout</span>
+                  <span className="text-sm font-medium">{isLoggingOut ? "Logging out..." : "Logout"}</span>
                 </button>
               </div>
             </motion.div>
