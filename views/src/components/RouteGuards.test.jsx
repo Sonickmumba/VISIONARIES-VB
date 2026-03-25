@@ -47,7 +47,7 @@ describe('RouteGuards', () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <Routes>
-          <Route path="/" element={<div>Dashboard Screen</div>} />
+          <Route path="/dashboard" element={<div>Dashboard Screen</div>} />
           <Route element={<PublicOnlyRoute />}>
             <Route path="/login" element={<div>Login Screen</div>} />
           </Route>

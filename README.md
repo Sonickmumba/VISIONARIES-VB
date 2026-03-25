@@ -188,6 +188,26 @@ Example command:
 ```
 --->
 
+### Bootstrap first super admin
+
+If your environment has no existing `super_admin`, run the bootstrap command once:
+
+```sh
+npm run bootstrap:superadmin
+```
+
+Environment variables used by the command:
+
+- `SUPER_ADMIN_EMAIL` (required)
+- `SUPER_ADMIN_NAME` (required when creating a new user)
+- `SUPER_ADMIN_PASSWORD` (required when creating a new user)
+- `SUPER_ADMIN_NATIONAL_ID` (required when creating a new user)
+- `SUPER_ADMIN_PHONE` (optional)
+
+In production, this command is blocked unless you set:
+
+- `ALLOW_SUPERADMIN_BOOTSTRAP=true`
+
 ### Deployment
 
 You can deploy this project using:

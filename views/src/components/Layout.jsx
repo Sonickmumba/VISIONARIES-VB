@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useAuthStore } from "../store/authStore";
 
 const NAV_ITEMS = [
-  { path: "/", label: "Dashboard", icon: Home },
+  { path: "/dashboard", label: "Dashboard", icon: Home },
   { path: "/groups", label: "Groups", icon: Users },
   { path: "/cycles", label: "Cycles", icon: Calendar },
   { path: "/loans", label: "Loans", icon: HandCoins },
@@ -66,7 +66,7 @@ export function Layout() {
   const userRole = useMemo(() => (user?.role || "member").replace("_", " "), [user]);
 
   const isActive = (path) => {
-    if (path === "/") return location.pathname === "/";
+    if (path === "/dashboard") return location.pathname === "/dashboard";
     return location.pathname.startsWith(path);
   };
 
@@ -79,7 +79,7 @@ export function Layout() {
     } finally {
       setMobileMenuOpen(false);
       setIsLoggingOut(false);
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     }
   };
 
@@ -93,7 +93,7 @@ export function Layout() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center">
+            <Link to="/dashboard" className="flex items-center">
               <div className="text-xl sm:text-2xl font-bold bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                 VISIONARIES VB
               </div>

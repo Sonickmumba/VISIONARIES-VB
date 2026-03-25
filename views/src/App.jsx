@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import { ProtectedRoute, PublicOnlyRoute } from './components/RouteGuards'
+import { Welcome } from './pages/Welcome'
 import Dashboard from './pages/Dashboard'
 import Groups from './pages/Groups'
 import Cycles from './pages/Cycles'
@@ -17,13 +18,14 @@ function App() {
         <main className="main-content">
           <Routes>
             <Route element={<PublicOnlyRoute />}>
+              <Route path="/" element={<Welcome />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
             </Route>
 
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/groups" element={<Groups />} />
                 <Route path="/cycles" element={<Cycles />} />
                 <Route path="/loans" element={<Loans />} />

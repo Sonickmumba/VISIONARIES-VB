@@ -1,5 +1,19 @@
 const db = require('../config/database');
 const { logAudit } = require('../utils/audit.util');
+const { ROLES } = require('../config/constants');
+
+const countOtherActiveSuperAdmins = async (client, userId) => {
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS count
+     FROM users
+     WHERE role = $1
+       AND is_active = true
+       AND id <> $2`,
+    [ROLES.SUPER_ADMIN, userId]
+  );
+
+  return Number(result.rows[0]?.count || 0);
+};
 
 /**
  * Get all users
@@ -210,6 +224,25 @@ exports.updateUserRole = async (req, res) => {
 
     const oldUser = existingResult.rows[0];
 
+    if (req.user.id === id && role !== ROLES.SUPER_ADMIN) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot demote your own super admin account',
+      });
+    }
+
+    if (oldUser.role === ROLES.SUPER_ADMIN && role !== ROLES.SUPER_ADMIN) {
+      const otherSuperAdmins = await countOtherActiveSuperAdmins(client, id);
+      if (otherSuperAdmins === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot demote the last active super admin',
+        });
+      }
+    }
+
     // Update role
     const result = await client.query(
       `UPDATE users 
@@ -281,6 +314,25 @@ exports.toggleUserStatus = async (req, res) => {
 
     const oldUser = existingResult.rows[0];
 
+    if (req.user.id === id && oldUser.is_active) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot deactivate your own account',
+      });
+    }
+
+    if (oldUser.role === ROLES.SUPER_ADMIN && oldUser.is_active) {
+      const otherSuperAdmins = await countOtherActiveSuperAdmins(client, id);
+      if (otherSuperAdmins === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot deactivate the last active super admin',
+        });
+      }
+    }
+
     // Toggle status
     const result = await client.query(
       `UPDATE users 
@@ -351,6 +403,25 @@ exports.deleteUser = async (req, res) => {
     }
 
     const user = userResult.rows[0];
+
+    if (req.user.id === id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete your own account',
+      });
+    }
+
+    if (user.role === ROLES.SUPER_ADMIN && user.is_active) {
+      const otherSuperAdmins = await countOtherActiveSuperAdmins(client, id);
+      if (otherSuperAdmins === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete the last active super admin',
+        });
+      }
+    }
 
     // Delete user (will cascade delete related records)
     await client.query('DELETE FROM users WHERE id = $1', [id]);
