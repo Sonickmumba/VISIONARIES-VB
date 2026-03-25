@@ -85,6 +85,15 @@ app.use('/api/loans', loanRoutes);
 app.use('/api/savings', savingsRoutes);
 app.use('/api/users', userRoutes);
 
+// Serve static React files in production
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Catch-all handler for React Router (client-side routing)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dist', 'index.html'));
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
