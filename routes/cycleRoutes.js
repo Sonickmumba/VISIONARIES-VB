@@ -17,6 +17,7 @@ const createCycleValidation = [
 // Routes
 router.post('/', authenticate, isAdmin, createCycleValidation, validate, cycleController.createCycle);
 router.get('/group/:groupId', authenticate, cycleController.getCyclesByGroup);
+router.get('/:id/statistics', authenticate, cycleController.getCycleStatistics);
 router.get('/:id', authenticate, cycleController.getCycleById);
 router.put('/:id', authenticate, isAdmin, cycleController.updateCycle);
 router.post('/:id/close', authenticate, isAdmin, cycleController.closeCycle);

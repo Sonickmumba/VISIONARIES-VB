@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   TrendingUp,
@@ -14,46 +14,16 @@ import {
   ArrowRight,
   Sparkles,
   BarChart3,
+  RefreshCw,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useDashboardStore } from "../store/dashboardStore";
 
 const currencyFormatter = new Intl.NumberFormat("en-ZM");
 
-const DASHBOARD_METRICS = {
-  totalSavings: 785000,
-  totalLoans: 620000,
-  availableFunds: 165000,
-  activeMembers: 42,
-};
-
-const CURRENT_CYCLE = {
-  name: "Cycle 1 2026",
-  startDate: "2026-01-01",
-  endDate: "2026-12-31",
-  status: "Active",
-};
-
-const CHART_DATA = [
-  { month: "Jan", amount: 695000, loans: 550000 },
-  { month: "Feb", amount: 739675, loans: 590000 },
-  { month: "Mar", amount: 785000, loans: 620000 },
-];
-
-const RECENT_ACTIVITIES = [
-  { id: 1, icon: CheckCircle2, color: "green", text: "Grace Phiri repayment verified", time: "2 hours ago" },
-  { id: 2, icon: PiggyBank, color: "blue", text: "Mary Banda savings recorded (K30,000)", time: "5 hours ago" },
-  { id: 3, icon: HandCoins, color: "purple", text: "David Zulu loan disbursed (K25,000)", time: "1 day ago" },
-];
-
-const NOTIFICATIONS = [
-  { id: 1, message: "2 loan applications waiting for approval", read: false, date: "2026-03-24" },
-  { id: 2, message: "Cycle contribution reminders pending", read: false, date: "2026-03-23" },
-  { id: 3, message: "3 members not yet paid this month", read: false, date: "2026-03-22" },
-];
-
 const QUICK_ACTIONS = [
   { label: "Record Savings", icon: PiggyBank, path: "/savings", color: "from-green-500 to-green-600" },
-  { label: "Disburse Loan", icon: HandCoins, path: "/loans", color: "from-blue-500 to-blue-600" },
+  { label: "Manage Loans", icon: HandCoins, path: "/loans", color: "from-blue-500 to-blue-600" },
   { label: "View Groups", icon: Users, path: "/groups", color: "from-purple-500 to-purple-600" },
   { label: "Cycle Reports", icon: FileText, path: "/cycles", color: "from-orange-500 to-orange-600" },
 ];
@@ -64,12 +34,15 @@ const ACTIVITY_COLORS = {
   purple: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
 };
 
-const SectionCard = memo(function SectionCard({ title, icon: Icon, children }) {
+const SectionCard = memo(function SectionCard({ title, icon: Icon, children, action }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h3>
-        {Icon ? <Icon className="w-5 h-5 text-gray-400" /> : null}
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <div className="flex items-center gap-3">
+          {Icon ? <Icon className="w-5 h-5 text-gray-400" /> : null}
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h3>
+        </div>
+        {action}
       </div>
       {children}
     </div>
@@ -91,7 +64,7 @@ const StatCard = memo(function StatCard({ icon: Icon, label, value, trend, tone 
           <p className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
           {typeof trend === "number" ? (
-            <p className="mt-1 text-xs text-green-600 dark:text-green-400">+{trend}% vs last month</p>
+            <p className="mt-1 text-xs text-green-600 dark:text-green-400">+{trend}% benchmark</p>
           ) : null}
         </div>
         <div className={`p-3 rounded-lg bg-linear-to-br ${toneClasses[tone] || toneClasses.blue} text-white`}>
@@ -102,11 +75,11 @@ const StatCard = memo(function StatCard({ icon: Icon, label, value, trend, tone 
   );
 });
 
-const ActivityItem = memo(function ActivityItem({ icon: Icon, color, text, time }) {
+const ActivityItem = memo(function ActivityItem({ color, text, time }) {
   return (
     <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg">
       <div className={`p-2 rounded-lg ${ACTIVITY_COLORS[color] || ACTIVITY_COLORS.blue}`}>
-        <Icon className="w-4 h-4" />
+        <Bell className="w-4 h-4" />
       </div>
       <div className="min-w-0">
         <p className="text-sm text-gray-900 dark:text-white font-medium">{text}</p>
@@ -121,6 +94,10 @@ const MiniComparisonChart = memo(function MiniComparisonChart({ data }) {
     () => Math.max(...data.flatMap((item) => [item.amount, item.loans]), 1),
     [data]
   );
+
+  if (!data.length) {
+    return <p className="text-sm text-gray-500 dark:text-gray-400">No historical cycle data yet.</p>;
+  }
 
   return (
     <div className="space-y-3">
@@ -144,10 +121,42 @@ const MiniComparisonChart = memo(function MiniComparisonChart({ data }) {
   );
 });
 
+const DashboardSkeleton = memo(function DashboardSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-16 rounded-xl bg-gray-200 dark:bg-gray-700" />
+      <div className="h-36 rounded-xl bg-gray-200 dark:bg-gray-700" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="h-32 rounded-xl bg-gray-200 dark:bg-gray-700" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="h-72 rounded-xl bg-gray-200 dark:bg-gray-700" />
+        <div className="h-72 rounded-xl bg-gray-200 dark:bg-gray-700" />
+      </div>
+    </div>
+  );
+});
+
 export function Dashboard() {
-  const pendingActions = useMemo(() => NOTIFICATIONS.filter((item) => !item.read).slice(0, 3), []);
-  const metrics = DASHBOARD_METRICS;
-  const cycle = CURRENT_CYCLE;
+  const metrics = useDashboardStore((state) => state.metrics);
+  const currentCycle = useDashboardStore((state) => state.currentCycle);
+  const chartData = useDashboardStore((state) => state.chartData);
+  const recentActivities = useDashboardStore((state) => state.recentActivities);
+  const pendingActions = useDashboardStore((state) => state.pendingActions);
+  const groups = useDashboardStore((state) => state.groups);
+  const loading = useDashboardStore((state) => state.loading);
+  const error = useDashboardStore((state) => state.error);
+  const fetchDashboard = useDashboardStore((state) => state.fetchDashboard);
+
+  useEffect(() => {
+    fetchDashboard().catch(() => {});
+  }, [fetchDashboard]);
+
+  if (loading && !currentCycle && groups.length === 0) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
@@ -162,36 +171,56 @@ export function Dashboard() {
             Dashboard
           </h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-            Welcome to Village Banking Management
+            Real-time village banking summary
           </p>
         </div>
-        <Link
-          to="/groups"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
-        >
-          <Users className="w-4 h-4" />
-          <span className="text-sm font-medium">Manage Groups</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/groups"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
+          >
+            <Users className="w-4 h-4" />
+            <span className="text-sm font-medium">Manage Groups</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => fetchDashboard(true).catch(() => {})}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </motion.div>
+
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4">
+          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-linear-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-700 p-6">
         <div className="flex items-start gap-3">
           <div className="text-3xl">👋</div>
           <div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-              Welcome to VISIONARIES VB Demo!
+              Welcome to VISIONARIES VB
               <Sparkles className="w-5 h-5 text-yellow-500" />
             </h3>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-              Explore member management, savings tracking, loan processing, and shareout reporting.
+              Monitor groups, cycle progress, savings performance, and loan exposure from one place.
             </p>
             <div className="flex flex-wrap gap-2">
-              {["Member Management", "Savings Tracking", "Loan Processing", "Shareout Reports"].map((feature) => (
+              {[
+                `${groups.length} Active Groups`,
+                `${metrics.activeMembers} Members`,
+                currentCycle?.name || 'No Active Cycle',
+              ].map((feature) => (
                 <span
                   key={feature}
                   className="px-3 py-1.5 bg-white/70 dark:bg-gray-800/70 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300"
                 >
-                  ✓ {feature}
+                  {feature}
                 </span>
               ))}
             </div>
@@ -206,14 +235,16 @@ export function Dashboard() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5" />
-              <h2 className="text-xl sm:text-2xl font-bold">{cycle.name}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">{currentCycle?.name || 'No Active Cycle'}</h2>
             </div>
             <p className="text-blue-100 text-sm">
-              {new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()}
+              {currentCycle?.startDate && currentCycle?.endDate
+                ? `${new Date(currentCycle.startDate).toLocaleDateString()} - ${new Date(currentCycle.endDate).toLocaleDateString()}`
+                : 'Create a cycle to see live stats'}
             </p>
           </div>
           <div className="px-4 py-2 rounded-lg border border-white/30 bg-white/10">
-            <span className="font-semibold uppercase text-sm">Status: {cycle.status}</span>
+            <span className="font-semibold uppercase text-sm">Status: {currentCycle?.status || 'N/A'}</span>
           </div>
         </div>
       </div>
@@ -227,19 +258,23 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SectionCard title="Savings Growth" icon={TrendingUp}>
-          <MiniComparisonChart data={CHART_DATA} />
+          <MiniComparisonChart data={chartData} />
         </SectionCard>
         <SectionCard title="Loans vs Savings" icon={BarChart3}>
-          <MiniComparisonChart data={CHART_DATA} />
+          <MiniComparisonChart data={chartData} />
         </SectionCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SectionCard title="Recent Activity" icon={Bell}>
           <div className="space-y-3">
-            {RECENT_ACTIVITIES.map((activity) => (
-              <ActivityItem key={activity.id} icon={activity.icon} color={activity.color} text={activity.text} time={activity.time} />
-            ))}
+            {recentActivities.length ? (
+              recentActivities.map((activity) => (
+                <ActivityItem key={activity.id} color={activity.color} text={activity.text} time={activity.time} />
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No activity available yet.</p>
+            )}
           </div>
         </SectionCard>
 
