@@ -26,7 +26,7 @@ const NAV_ITEMS = [
   { path: "/dashboard/disburse-loan", label: "Disburse Loan", icon: DollarSign },
   { path: "/dashboard/record-repayment", label: "Repayments", icon: HandCoins },
   { path: "/dashboard/shareout", label: "Shareout", icon: FileText },
-    { path: "help", label: "Help", icon: HelpCircle },
+    { path: "/dashboard/help", label: "Help", icon: HelpCircle },
   ];
 
 const NavItem = memo(function NavItem({ item, active, onClick }) {
