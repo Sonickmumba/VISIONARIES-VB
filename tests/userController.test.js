@@ -185,6 +185,59 @@ describe('userController unit tests', () => {
     });
   });
 
+  test('getMemberDetails returns 404 when member does not exist', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const req = { params: { id: 'missing-user' } };
+    const res = createRes();
+
+    await userController.getMemberDetails(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'User not found',
+    });
+  });
+
+  test('getMemberDetails returns member with financial data', async () => {
+    const memberRow = {
+      id: 'user-1',
+      name: 'Test User',
+      member_no: 'VB-001',
+      email: 'test@test.com',
+      phone: '0999111222',
+      national_id: '123456',
+      total_savings: 25000,
+      total_loan_borrowed: 50000,
+      outstanding_loan: 20000,
+      shortfall: 0,
+      common_interest_amount: 0,
+      cycle_id: 'cycle-1',
+    };
+
+    db.query
+      .mockResolvedValueOnce({ rows: [memberRow] })           // detail query
+      .mockResolvedValueOnce({ rows: [{ id: 's1', amount: 5000, month: 1, year: 2024, status: 'verified' }] })  // recent savings
+      .mockResolvedValueOnce({ rows: [{ id: 'l1', amount: 50000, total_amount: 55000, amount_repaid: 35000, status: 'disbursed' }] }); // recent loans
+
+    const req = { params: { id: 'user-1' } };
+    const res = createRes();
+
+    await userController.getMemberDetails(req, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: expect.objectContaining({
+        id: 'user-1',
+        total_savings: 25000,
+        outstanding_loan: 20000,
+        recent_savings: expect.any(Array),
+        recent_loans: expect.any(Array),
+      }),
+    });
+  });
+
   test('deleteUser prevents deleting the last active super admin', async () => {
     const oldUser = { id: 'super-1', role: 'super_admin', is_active: true };
     const client = {
