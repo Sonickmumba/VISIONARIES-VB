@@ -101,8 +101,8 @@ const MiniComparisonChart = memo(function MiniComparisonChart({ data }) {
 
   return (
     <div className="space-y-3">
-      {data.map((item) => (
-        <div key={item.month}>
+      {data.map((item, index) => (
+        <div key={item.id || `${item.month}-${index}`}>
           <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
             <span>{item.month}</span>
             <span>S: K {currencyFormatter.format(item.amount)} | L: K {currencyFormatter.format(item.loans)}</span>
