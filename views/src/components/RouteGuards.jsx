@@ -1,11 +1,13 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
+import { useSelector } from 'react-redux';
 
 export function ProtectedRoute() {
-  const token = useAuthStore((state) => state.token);
+  const { user, initializing } = useSelector((state) => state.auth);
   const location = useLocation();
 
-  if (!token) {
+  if (initializing) return null; // wait for fetchCurrentUser
+
+  if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
@@ -13,9 +15,11 @@ export function ProtectedRoute() {
 }
 
 export function PublicOnlyRoute() {
-  const token = useAuthStore((state) => state.token);
+  const { user, initializing } = useSelector((state) => state.auth);
 
-  if (token) {
+  if (initializing) return null;
+
+  if (user) {
     return <Navigate to="/dashboard" replace />;
   }
 

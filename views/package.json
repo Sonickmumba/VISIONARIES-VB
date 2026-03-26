@@ -5,13 +5,16 @@
   "type": "module",
   "private": true,
   "dependencies": {
+    "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.6.2",
     "lucide-react": "^1.6.0",
     "motion": "^12.38.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-redux": "^9.2.0",
     "react-router": "^7.13.2",
-    "react-router-dom": "^6.20.0",
+    "react-router-dom": "^6.30.3",
+    "recharts": "^3.8.1",
     "sonner": "^2.0.7",
     "zustand": "^4.4.1"
   },

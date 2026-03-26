@@ -7,17 +7,22 @@ const { ROLES } = require('../config/constants');
  */
 const authenticate = async (req, res, next) => {
   try {
-    // Get token from header
+    // Get token from Authorization header or httpOnly cookie
     const authHeader = req.headers.authorization;
+    let token;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else if (req.cookies && req.cookies['vb-token']) {
+      token = req.cookies['vb-token'];
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: 'No token provided',
       });
     }
-
-    const token = authHeader.substring(7);
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

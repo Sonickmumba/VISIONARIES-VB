@@ -17,7 +17,8 @@ import {
   Sun,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useAuthStore } from "../store/authStore";
+import { useDispatch, useSelector } from "react-redux";
+import { logout as logoutThunk } from "../store/slices/authSlice";
 
 const NAV_ITEMS = [
     { path: "/dashboard", label: "Dashboard", icon: Home },
@@ -50,12 +51,12 @@ const NavItem = memo(function NavItem({ item, active, onClick }) {
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
 
-  const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
+  const user = useSelector((state) => state.auth.user);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -80,7 +81,7 @@ export function Layout() {
 
     setIsLoggingOut(true);
     try {
-      await logout();
+      await dispatch(logoutThunk()).unwrap();
     } finally {
       setMobileMenuOpen(false);
       setIsLoggingOut(false);

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { signup as signupThunk, clearError } from "../store/slices/authSlice";
 import { motion } from "motion/react";
 import {
   PiggyBank,
@@ -16,10 +18,11 @@ import {
   Shield,
 } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
 
 export function Signup() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading: isSubmitting } = useSelector((s) => s.auth);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -30,7 +33,6 @@ export function Signup() {
     password: "",
     confirmPassword: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
@@ -87,26 +89,21 @@ export function Signup() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await axios.post("/api/auth/signup", {
+    const result = await dispatch(
+      signupThunk({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         nationalId: formData.nationalId,
         password: formData.password,
-      });
+      })
+    );
 
+    if (signupThunk.fulfilled.match(result)) {
       toast.success("Account created successfully! Please login.");
       navigate("/login");
-    } catch (error) {
-      const message =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        "Failed to create account. Please try again.";
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      toast.error(result.payload || "Failed to create account. Please try again.");
     }
   };
 
