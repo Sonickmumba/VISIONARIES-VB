@@ -11,7 +11,10 @@ describe('RouteGuards', () => {
 
   it('redirects unauthenticated users from protected routes to login', () => {
     render(
-      <MemoryRouter initialEntries={['/groups']}>
+      <MemoryRouter
+        initialEntries={['/groups']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/login" element={<div>Login Screen</div>} />
           <Route element={<ProtectedRoute />}>
@@ -28,7 +31,10 @@ describe('RouteGuards', () => {
     useAuthStore.setState({ user: { id: 'u1', name: 'Test User' }, token: 'token-123' });
 
     render(
-      <MemoryRouter initialEntries={['/groups']}>
+      <MemoryRouter
+        initialEntries={['/groups']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/login" element={<div>Login Screen</div>} />
           <Route element={<ProtectedRoute />}>
@@ -45,7 +51,10 @@ describe('RouteGuards', () => {
     useAuthStore.setState({ user: { id: 'u1', name: 'Test User' }, token: 'token-123' });
 
     render(
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter
+        initialEntries={['/login']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/dashboard" element={<div>Dashboard Screen</div>} />
           <Route element={<PublicOnlyRoute />}>
