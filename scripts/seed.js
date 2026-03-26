@@ -39,6 +39,11 @@ const IDS = {
   loan3: 'd0000000-0000-0000-0000-000000000003', // chanda  – pending
   loan4: 'd0000000-0000-0000-0000-000000000004', // evans   – approved
   loan5: 'd0000000-0000-0000-0000-000000000005', // grace   – disbursed
+
+  // Loan repayments
+  repayment1: 'e0000000-0000-0000-0000-000000000001',
+  repayment2: 'e0000000-0000-0000-0000-000000000002',
+  repayment3: 'e0000000-0000-0000-0000-000000000003',
 };
 
 const DEMO_PASSWORD = 'Demo@12345';
@@ -140,41 +145,41 @@ async function seed() {
     // Format: [cycleId, userId, amount, month, year, status]
     const savingsRecords = [
       // Alpha group — Alice
-      [IDS.cycleAlpha, IDS.alice,  500, 1, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.alice,  500, 2, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.alice,  500, 3, 2026, 'pending'],
+      [IDS.cycleAlpha, IDS.alice,  30000, 1, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.alice,  30000, 2, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.alice,  30000, 3, 2026, 'pending'],
       // Alpha group — Brian
-      [IDS.cycleAlpha, IDS.brian,  400, 1, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.brian,  400, 2, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.brian,  400, 3, 2026, 'rejected'],
+      [IDS.cycleAlpha, IDS.brian,  25000, 1, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.brian,  25000, 2, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.brian,  25000, 3, 2026, 'rejected'],
       // Alpha group — Chanda
-      [IDS.cycleAlpha, IDS.chanda, 600, 1, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.chanda, 600, 2, 2026, 'pending'],
+      [IDS.cycleAlpha, IDS.chanda, 30000, 1, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.chanda, 28000, 2, 2026, 'pending'],
       // Alpha group — Daisy
-      [IDS.cycleAlpha, IDS.daisy,  350, 1, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.daisy,  350, 2, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.daisy,  350, 3, 2026, 'pending'],
+      [IDS.cycleAlpha, IDS.daisy,  22000, 1, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.daisy,  22000, 2, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.daisy,  22000, 3, 2026, 'pending'],
       // Alpha group — Evans
-      [IDS.cycleAlpha, IDS.evans,  450, 1, 2026, 'verified'],
-      [IDS.cycleAlpha, IDS.evans,  450, 2, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.evans,  27000, 1, 2026, 'verified'],
+      [IDS.cycleAlpha, IDS.evans,  27000, 2, 2026, 'verified'],
       // Beta group — Faith
-      [IDS.cycleBeta,  IDS.faith,  550, 1, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.faith,  550, 2, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.faith,  550, 3, 2026, 'pending'],
+      [IDS.cycleBeta,  IDS.faith,  30000, 1, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.faith,  30000, 2, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.faith,  30000, 3, 2026, 'pending'],
       // Beta group — Grace
-      [IDS.cycleBeta,  IDS.grace,  500, 1, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.grace,  500, 2, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.grace,  30000, 1, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.grace,  30000, 2, 2026, 'verified'],
       // Beta group — Henry
-      [IDS.cycleBeta,  IDS.henry,  300, 1, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.henry,  300, 2, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.henry,  300, 3, 2026, 'pending'],
+      [IDS.cycleBeta,  IDS.henry,  20000, 1, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.henry,  20000, 2, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.henry,  20000, 3, 2026, 'pending'],
       // Beta group — Irene
-      [IDS.cycleBeta,  IDS.irene,  480, 1, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.irene,  480, 2, 2026, 'pending'],
+      [IDS.cycleBeta,  IDS.irene,  24000, 1, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.irene,  24000, 2, 2026, 'pending'],
       // Beta group — James
-      [IDS.cycleBeta,  IDS.james,  520, 1, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.james,  520, 2, 2026, 'verified'],
-      [IDS.cycleBeta,  IDS.james,  520, 3, 2026, 'pending'],
+      [IDS.cycleBeta,  IDS.james,  26000, 1, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.james,  26000, 2, 2026, 'verified'],
+      [IDS.cycleBeta,  IDS.james,  26000, 3, 2026, 'pending'],
     ];
 
     for (const [cycleId, userId, amount, month, year, status] of savingsRecords) {
@@ -184,7 +189,14 @@ async function seed() {
       await client.query(
         `INSERT INTO savings (cycle_id, user_id, amount, month, year, status, payment_date, verified_by, verified_at, interest_earned)
          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, $8, 0)
-         ON CONFLICT (cycle_id, user_id, month, year) DO NOTHING`,
+         ON CONFLICT (cycle_id, user_id, month, year) DO UPDATE SET
+           amount = EXCLUDED.amount,
+           status = EXCLUDED.status,
+           verified_by = EXCLUDED.verified_by,
+           verified_at = EXCLUDED.verified_at,
+           interest_earned = EXCLUDED.interest_earned,
+           payment_date = EXCLUDED.payment_date,
+           updated_at = CURRENT_TIMESTAMP`,
         [cycleId, userId, amount, month, year, status, verifiedBy, verifiedAt]
       );
     }
@@ -192,28 +204,28 @@ async function seed() {
     // ── 6. Loans ──────────────────────────────────────────────────────────────
     console.log('🏦 Seeding loans…');
 
-    // interest = 20 % of principal, min K3,000
+    // interest = 15% of principal (aligned with HelpPage examples)
     const applyInterest = (principal) => {
-      const interest = Math.max(3000, principal * 0.2);
+      const interest = principal * 0.15;
       return { interest, total: principal + interest };
     };
 
     const loans = [
       {
         id: IDS.loan1, cycleId: IDS.cycleAlpha, userId: IDS.alice,
-        amount: 5000, purpose: 'Working capital for small grocery shop',
+        amount: 25000, purpose: 'Working capital for small grocery shop',
         status: 'disbursed',
         approvedBy: IDS.admin, approvedDate: '2026-01-20',
         disbursedDate: '2026-01-22', dueDate: '2026-06-22',
-        amountRepaid: 2000,
+        amountRepaid: 10000,
       },
       {
         id: IDS.loan2, cycleId: IDS.cycleAlpha, userId: IDS.brian,
-        amount: 3000, purpose: 'School fees for children',
+        amount: 15000, purpose: 'School fees for children',
         status: 'repaid',
         approvedBy: IDS.admin, approvedDate: '2026-01-18',
         disbursedDate: '2026-01-20', dueDate: '2026-04-20',
-        amountRepaid: 3600, repaymentDate: '2026-03-15',
+        amountRepaid: 17250, repaymentDate: '2026-03-15',
       },
       {
         id: IDS.loan3, cycleId: IDS.cycleAlpha, userId: IDS.chanda,
@@ -221,8 +233,8 @@ async function seed() {
         status: 'pending',
       },
       {
-        id: IDS.loan4, cycleId: IDS.cycleBeta, userId: IDS.evans,
-        amount: 4000, purpose: 'Agricultural inputs – maize seed & fertiliser',
+        id: IDS.loan4, cycleId: IDS.cycleBeta, userId: IDS.henry,
+        amount: 20000, purpose: 'Agricultural inputs – maize seed & fertiliser',
         status: 'approved',
         approvedBy: IDS.admin, approvedDate: '2026-02-05',
         dueDate: '2026-07-05',
@@ -246,7 +258,21 @@ async function seed() {
            approved_by, approved_date, disbursed_date, due_date, repayment_date, amount_repaid
          )
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT (id) DO UPDATE SET
+           cycle_id = EXCLUDED.cycle_id,
+           user_id = EXCLUDED.user_id,
+           amount = EXCLUDED.amount,
+           interest_amount = EXCLUDED.interest_amount,
+           total_amount = EXCLUDED.total_amount,
+           purpose = EXCLUDED.purpose,
+           status = EXCLUDED.status,
+           approved_by = EXCLUDED.approved_by,
+           approved_date = EXCLUDED.approved_date,
+           disbursed_date = EXCLUDED.disbursed_date,
+           due_date = EXCLUDED.due_date,
+           repayment_date = EXCLUDED.repayment_date,
+           amount_repaid = EXCLUDED.amount_repaid,
+           updated_at = CURRENT_TIMESTAMP`,
         [
           loan.id, loan.cycleId, loan.userId,
           loan.amount, interest, total, loan.purpose, loan.status,
@@ -260,28 +286,53 @@ async function seed() {
     // ── 7. Loan repayments ────────────────────────────────────────────────────
     console.log('💳 Seeding loan repayments…');
 
+    await client.query(
+      `DELETE FROM loan_repayments
+       WHERE loan_id IN ($1, $2, $3)`,
+      [IDS.loan1, IDS.loan2, IDS.loan5]
+    );
+
     // Repayment for loan2 (Brian – repaid)
     await client.query(
-      `INSERT INTO loan_repayments (loan_id, amount, status, verified_by, verified_at, notes)
-       VALUES ($1, $2, 'verified', $3, CURRENT_TIMESTAMP, 'Full repayment including interest')
-       ON CONFLICT DO NOTHING`,
-      [IDS.loan2, 3600, IDS.admin]
+      `INSERT INTO loan_repayments (id, loan_id, amount, status, verified_by, verified_at, notes)
+       VALUES ($1, $2, $3, 'verified', $4, CURRENT_TIMESTAMP, 'Full repayment including interest')
+       ON CONFLICT (id) DO UPDATE SET
+         loan_id = EXCLUDED.loan_id,
+         amount = EXCLUDED.amount,
+         status = EXCLUDED.status,
+         verified_by = EXCLUDED.verified_by,
+         verified_at = EXCLUDED.verified_at,
+         notes = EXCLUDED.notes,
+         updated_at = CURRENT_TIMESTAMP`,
+      [IDS.repayment1, IDS.loan2, 17250, IDS.admin]
     );
 
     // Partial repayment for loan1 (Alice – disbursed)
     await client.query(
-      `INSERT INTO loan_repayments (loan_id, amount, status, verified_by, verified_at, notes)
-       VALUES ($1, $2, 'verified', $3, CURRENT_TIMESTAMP, 'First instalment')
-       ON CONFLICT DO NOTHING`,
-      [IDS.loan1, 2000, IDS.admin]
+      `INSERT INTO loan_repayments (id, loan_id, amount, status, verified_by, verified_at, notes)
+       VALUES ($1, $2, $3, 'verified', $4, CURRENT_TIMESTAMP, 'First instalment')
+       ON CONFLICT (id) DO UPDATE SET
+         loan_id = EXCLUDED.loan_id,
+         amount = EXCLUDED.amount,
+         status = EXCLUDED.status,
+         verified_by = EXCLUDED.verified_by,
+         verified_at = EXCLUDED.verified_at,
+         notes = EXCLUDED.notes,
+         updated_at = CURRENT_TIMESTAMP`,
+      [IDS.repayment2, IDS.loan1, 10000, IDS.admin]
     );
 
     // Partial repayment for loan5 (Grace – disbursed)
     await client.query(
-      `INSERT INTO loan_repayments (loan_id, amount, status, notes)
-       VALUES ($1, $2, 'pending', 'First instalment – pending admin verification')
-       ON CONFLICT DO NOTHING`,
-      [IDS.loan5, 1500]
+      `INSERT INTO loan_repayments (id, loan_id, amount, status, notes)
+       VALUES ($1, $2, $3, 'pending', 'First instalment – pending admin verification')
+       ON CONFLICT (id) DO UPDATE SET
+         loan_id = EXCLUDED.loan_id,
+         amount = EXCLUDED.amount,
+         status = EXCLUDED.status,
+         notes = EXCLUDED.notes,
+         updated_at = CURRENT_TIMESTAMP`,
+      [IDS.repayment3, IDS.loan5, 1500]
     );
 
     // ── 8. Update cycle totals ─────────────────────────────────────────────────
@@ -294,6 +345,12 @@ async function seed() {
              FROM savings
              WHERE cycle_id = cycles.id AND status = 'verified'
            ), 0),
+           total_interest = COALESCE((
+             SELECT SUM(interest_amount)
+             FROM loans
+             WHERE cycle_id = cycles.id
+               AND status IN ('repaid', 'defaulted')
+           ), 0),
            updated_at = CURRENT_TIMESTAMP
        WHERE id IN ($1, $2)`,
       [IDS.cycleAlpha, IDS.cycleBeta]
@@ -302,13 +359,28 @@ async function seed() {
     // ── 9. Notifications ───────────────────────────────────────────────────────
     console.log('🔔 Seeding notifications…');
 
+    await client.query(
+      `DELETE FROM notifications
+       WHERE user_id IN ($1,$2,$3,$4,$5,$6,$7,$8)
+         AND title IN (
+           'Loan Application',
+           'New Savings Submission',
+           'Loan Disbursed',
+           'Savings Verified',
+           'Loan Approved',
+           'Repayment Pending',
+           'Application Received'
+         )`,
+      [IDS.admin, IDS.alice, IDS.brian, IDS.chanda, IDS.evans, IDS.grace, IDS.henry, IDS.faith]
+    );
+
     const notifications = [
       { userId: IDS.admin, type: 'system_alert',      title: 'Loan Application',        message: 'Chanda Mutale has applied for a loan of K8,000.00. Please review.' },
-      { userId: IDS.admin, type: 'payment_due',        title: 'New Savings Submission',  message: 'Alice Banda submitted savings of K500.00 for March 2026.' },
-      { userId: IDS.admin, type: 'payment_due',        title: 'New Savings Submission',  message: 'Brian Zulu submitted savings of K400.00 for March 2026 — flagged for review.' },
-      { userId: IDS.alice, type: 'loan_approved',      title: 'Loan Disbursed',          message: 'Your loan of K5,000.00 has been disbursed. Due date: 22 Jun 2026.' },
-      { userId: IDS.brian, type: 'payment_verified',   title: 'Savings Verified',        message: 'Your savings of K400.00 for Feb 2026 have been verified.' },
-      { userId: IDS.evans, type: 'loan_approved',      title: 'Loan Approved',           message: 'Your loan application of K4,000.00 has been approved. Awaiting disbursement.' },
+      { userId: IDS.admin, type: 'payment_due',        title: 'New Savings Submission',  message: 'Alice Banda submitted savings of K30,000.00 for March 2026.' },
+      { userId: IDS.admin, type: 'payment_due',        title: 'New Savings Submission',  message: 'Brian Zulu submitted savings of K25,000.00 for March 2026 — flagged for review.' },
+      { userId: IDS.alice, type: 'loan_approved',      title: 'Loan Disbursed',          message: 'Your loan of K25,000.00 has been disbursed. Due date: 22 Jun 2026.' },
+      { userId: IDS.brian, type: 'payment_verified',   title: 'Savings Verified',        message: 'Your savings of K25,000.00 for Feb 2026 have been verified.' },
+      { userId: IDS.henry, type: 'loan_approved',      title: 'Loan Approved',           message: 'Your loan application of K20,000.00 has been approved. Awaiting disbursement.' },
       { userId: IDS.grace, type: 'system_alert',       title: 'Repayment Pending',       message: 'Your loan repayment of K1,500.00 is pending verification.' },
       { userId: IDS.chanda, type: 'system_alert',      title: 'Application Received',    message: 'Your loan application for K8,000.00 is under review.' },
     ];
@@ -324,25 +396,51 @@ async function seed() {
     // ── 10. Transactions (ledger) ──────────────────────────────────────────────
     console.log('📒 Seeding transaction ledger…');
 
+    await client.query(
+      `DELETE FROM transactions
+       WHERE cycle_id IN ($1, $2)
+         AND description IN (
+           'Jan savings – Alice Banda',
+           'Feb savings – Alice Banda',
+           'Loan disbursement – Alice Banda',
+           'Jan savings – Brian Zulu',
+           'Feb savings – Brian Zulu',
+           'Loan full repayment – Brian Zulu',
+           'Jan savings – Chanda Mutale',
+           'Jan savings – Daisy Phiri',
+           'Feb savings – Daisy Phiri',
+           'Jan savings – Evans Mwansa',
+           'Jan savings – Faith Kabwe',
+           'Feb savings – Faith Kabwe',
+           'Jan savings – Grace Mulenga',
+           'Loan disbursement – Grace Mulenga',
+           'Jan savings – Henry Lungu',
+           'Jan savings – Irene Chisanga',
+           'Jan savings – James Mwila',
+           'Feb savings – James Mwila'
+         )`,
+      [IDS.cycleAlpha, IDS.cycleBeta]
+    );
+
     const txEntries = [
-      { userId: IDS.alice,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 500,  balance: 500,  desc: 'Jan savings – Alice Banda' },
-      { userId: IDS.alice,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 500,  balance: 1000, desc: 'Feb savings – Alice Banda' },
-      { userId: IDS.alice,  cycleId: IDS.cycleAlpha, type: 'loan_disbursement',  amount: 5000, balance: 6000, desc: 'Loan disbursement – Alice Banda' },
-      { userId: IDS.brian,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 400,  balance: 400,  desc: 'Jan savings – Brian Zulu' },
-      { userId: IDS.brian,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 400,  balance: 800,  desc: 'Feb savings – Brian Zulu' },
-      { userId: IDS.brian,  cycleId: IDS.cycleAlpha, type: 'loan_repayment',    amount: 3600, balance: 0,    desc: 'Loan full repayment – Brian Zulu' },
-      { userId: IDS.chanda, cycleId: IDS.cycleAlpha, type: 'savings',           amount: 600,  balance: 600,  desc: 'Jan savings – Chanda Mutale' },
-      { userId: IDS.daisy,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 350,  balance: 350,  desc: 'Jan savings – Daisy Phiri' },
-      { userId: IDS.daisy,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 350,  balance: 700,  desc: 'Feb savings – Daisy Phiri' },
-      { userId: IDS.evans,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 450,  balance: 450,  desc: 'Jan savings – Evans Mwansa' },
-      { userId: IDS.faith,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 550,  balance: 550,  desc: 'Jan savings – Faith Kabwe' },
-      { userId: IDS.faith,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 550,  balance: 1100, desc: 'Feb savings – Faith Kabwe' },
-      { userId: IDS.grace,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 500,  balance: 500,  desc: 'Jan savings – Grace Mulenga' },
-      { userId: IDS.grace,  cycleId: IDS.cycleBeta,  type: 'loan_disbursement', amount: 6000, balance: 6500, desc: 'Loan disbursement – Grace Mulenga' },
-      { userId: IDS.henry,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 300,  balance: 300,  desc: 'Jan savings – Henry Lungu' },
-      { userId: IDS.irene,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 480,  balance: 480,  desc: 'Jan savings – Irene Chisanga' },
-      { userId: IDS.james,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 520,  balance: 520,  desc: 'Jan savings – James Mwila' },
-      { userId: IDS.james,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 520,  balance: 1040, desc: 'Feb savings – James Mwila' },
+      { userId: IDS.alice,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 30000,  balance: 30000,  desc: 'Jan savings – Alice Banda' },
+      { userId: IDS.alice,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 30000,  balance: 60000, desc: 'Feb savings – Alice Banda' },
+      { userId: IDS.alice,  cycleId: IDS.cycleAlpha, type: 'loan_disbursement', amount: 25000,  balance: 85000, desc: 'Loan disbursement – Alice Banda' },
+      { userId: IDS.brian,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 25000,  balance: 25000, desc: 'Jan savings – Brian Zulu' },
+      { userId: IDS.brian,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 25000,  balance: 50000, desc: 'Feb savings – Brian Zulu' },
+      { userId: IDS.brian,  cycleId: IDS.cycleAlpha, type: 'loan_repayment',    amount: 17250, balance: 0,   desc: 'Loan full repayment – Brian Zulu' },
+      { userId: IDS.chanda, cycleId: IDS.cycleAlpha, type: 'savings',           amount: 30000,  balance: 30000, desc: 'Jan savings – Chanda Mutale' },
+      { userId: IDS.daisy,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 22000,  balance: 22000, desc: 'Jan savings – Daisy Phiri' },
+      { userId: IDS.daisy,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 22000,  balance: 44000, desc: 'Feb savings – Daisy Phiri' },
+      { userId: IDS.evans,  cycleId: IDS.cycleAlpha, type: 'savings',           amount: 27000,  balance: 27000, desc: 'Jan savings – Evans Mwansa' },
+      { userId: IDS.faith,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 30000,  balance: 30000, desc: 'Jan savings – Faith Kabwe' },
+      { userId: IDS.faith,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 30000,  balance: 60000, desc: 'Feb savings – Faith Kabwe' },
+      { userId: IDS.grace,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 30000,  balance: 30000, desc: 'Jan savings – Grace Mulenga' },
+      { userId: IDS.grace,  cycleId: IDS.cycleBeta,  type: 'loan_disbursement', amount: 6000,   balance: 36000, desc: 'Loan disbursement – Grace Mulenga' },
+      { userId: IDS.henry,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 20000,  balance: 20000, desc: 'Jan savings – Henry Lungu' },
+      { userId: IDS.irene,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 24000,  balance: 24000, desc: 'Jan savings – Irene Chisanga' },
+      { userId: IDS.james,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 26000,  balance: 26000, desc: 'Jan savings – James Mwila' },
+      { userId: IDS.james,  cycleId: IDS.cycleBeta,  type: 'savings',           amount: 26000,  balance: 52000, desc: 'Feb savings – James Mwila' },
     ];
 
     for (const tx of txEntries) {
