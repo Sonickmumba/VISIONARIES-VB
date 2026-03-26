@@ -49,7 +49,7 @@ describe('Members page', () => {
     axios.get.mockResolvedValue(membersPayload);
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Members />
       </MemoryRouter>
     );
@@ -69,7 +69,7 @@ describe('Members page', () => {
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Members />
       </MemoryRouter>
     );
@@ -100,7 +100,7 @@ describe('Members page', () => {
     axios.get.mockRejectedValue(new Error('Network error'));
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Members />
       </MemoryRouter>
     );
@@ -122,7 +122,7 @@ describe('Members page', () => {
     });
 
     const { rerender } = render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Members />
       </MemoryRouter>
     );
@@ -142,7 +142,7 @@ describe('Members page', () => {
     });
 
     rerender(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Members />
       </MemoryRouter>
     );
