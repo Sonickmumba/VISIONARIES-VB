@@ -70,7 +70,10 @@ describe('MemberDetail page', () => {
     axios.get.mockResolvedValue(memberDetailPayload);
 
     render(
-      <MemoryRouter initialEntries={['/dashboard/members/u1']}>
+      <MemoryRouter
+        initialEntries={['/dashboard/members/u1']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/dashboard/members/:memberId" element={<MemberDetail />} />
         </Routes>
@@ -94,7 +97,10 @@ describe('MemberDetail page', () => {
     axios.get.mockRejectedValue(new Error('Network error'));
 
     render(
-      <MemoryRouter initialEntries={['/dashboard/members/u1']}>
+      <MemoryRouter
+        initialEntries={['/dashboard/members/u1']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/dashboard/members/:memberId" element={<MemberDetail />} />
         </Routes>
