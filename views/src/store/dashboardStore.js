@@ -56,6 +56,7 @@ export const buildDashboardModel = ({ groups = [], cycles = [], statsByCycle = {
         .map((cycle) => {
           const cycleStats = statsByCycle[cycle.id] || {};
           return {
+            id: cycle.id,
             month: formatCycleLabel(cycle),
             amount: toNumber(cycleStats?.savings?.total_amount),
             loans: toNumber(cycleStats?.loans?.total_amount),
