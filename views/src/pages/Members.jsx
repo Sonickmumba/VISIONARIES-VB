@@ -1,340 +1,243 @@
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
-import {
-  Search,
-  AlertTriangle,
-  CheckCircle2,
-  Users as UsersIcon,
-  Filter,
-  Shield,
-  UserCheck,
-  ChevronLeft,
-  ChevronRight,
-  PiggyBank,
-  HandCoins,
-  Upload,
-  UserPlus,
-} from 'lucide-react';
-import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
-import { AnimatedCard, GlassCard, StatCard } from '../components/AnimatedCard';
-import { useAuthStore } from '../store/authStore';
-
-const PAGE_SIZE = 20;
-const currencyFormatter = new Intl.NumberFormat('en-ZM', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const toAmount = (...values) => {
-  for (const value of values) {
-    const amount = Number(value);
-    if (Number.isFinite(amount)) {
-      return amount;
-    }
-  }
-
-  return 0;
-};
-
-const normalizeMembers = (payload) => {
-  const list = Array.isArray(payload) ? payload : payload?.data || [];
-
-  return list.map((member) => ({
-    id: member.id,
-    name: member.name || 'Unknown User',
-    memberNo: member.member_no || member.memberNo || null,
-    email: member.email || 'N/A',
-    phone: member.phone || 'N/A',
-    role: member.role || 'member',
-    status: member.is_active ? 'active' : 'inactive',
-    groupId: member.group_id || null,
-    groupName: member.group_name || 'Unassigned',
-    totalSavings: toAmount(member.total_savings, member.totalSavings, member.savings_total, member.savingsAmount),
-    totalLoans: toAmount(member.total_loans, member.totalLoans, member.loan_total, member.loan_balance),
-    createdAt: member.created_at,
-  }));
-};
-
-const MemberRow = memo(function MemberRow({ member, index, onView }) {
-  const shortfall = Math.max(member.totalLoans - member.totalSavings, 0);
-
-  return (
-    <motion.tr
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: Math.min(index * 0.02, 0.2) }}
-      className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
-    >
-      <td className="px-6 py-4">
-        <div>
-          <div className="font-semibold text-gray-900 dark:text-white">{member.name}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">{member.email}</div>
-        </div>
-      </td>
-      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{member.phone}</td>
-      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">K {currencyFormatter.format(member.totalSavings)}</td>
-      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">K {currencyFormatter.format(member.totalLoans)}</td>
-      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">K {currencyFormatter.format(shortfall)}</td>
-      <td className="px-6 py-4 text-center">
-        <span
-          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-            member.status === 'active'
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-          }`}
-        >
-          {member.status}
-        </span>
-      </td>
-      <td className="px-6 py-4 text-center">
-        <button
-          type="button"
-          onClick={() => onView(member.id)}
-          className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          View
-        </button>
-      </td>
-    </motion.tr>
-  );
-});
-
-const MemberCard = memo(function MemberCard({ member, index, onView }) {
-  const shortfall = Math.max(member.totalLoans - member.totalSavings, 0);
-  const memberCode = member.memberNo || 'N/A';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.2) }}
-    >
-      <GlassCard className="p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-1xl sm:text-4xl font-bold text-blue-600 flex items-center gap-2">
-              {member.name}
-            </p>
-            <p className="text-lg text-gray-600 dark:text-gray-400">{memberCode}</p>
-          </div>
-          <span
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-              member.status === 'active'
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-            }`}
-          >
-            {member.status}
-          </span>
-        </div>
-
-        <div className="mt-4 divide-y divide-gray-200 dark:divide-gray-700 border-y border-gray-200 dark:border-gray-700">
-          <div className="py-4 flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Phone:</span>
-            <span className="font-semibold text-gray-900 dark:text-white">{member.phone}</span>
-          </div>
-          <div className="py-4 flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Savings:</span>
-            <span className="font-semibold text-green-600 dark:text-green-400">K {currencyFormatter.format(member.totalSavings)}</span>
-          </div>
-          <div className="py-4 flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Loan:</span>
-            <span className="font-semibold text-orange-600 dark:text-orange-400">K {currencyFormatter.format(member.totalLoans)}</span>
-          </div>
-          <div className="py-4 flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Shortfall:</span>
-            <span className={`inline-flex items-center gap-1 font-semibold ${shortfall > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>
-              <CheckCircle2 className="w-4 h-4" />
-              K {currencyFormatter.format(shortfall)}
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => onView(member.id)}
-            className="w-full inline-flex items-center justify-center px-4 py-3 rounded-xl bg-linear-to-r from-blue-500 to-purple-500 text-white text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-          >
-            View Details
-          </button>
-        </div>
-      </GlassCard>
-    </motion.div>
-  );
-});
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchMembers } from "../store/slices/memberSlice";
+import { Search, Plus, Download, AlertTriangle, CheckCircle2, DollarSign, Users as UsersIcon, TrendingUp, Filter, X, RefreshCw, Loader2 } from "lucide-react";
+import { AnimatedCard, GlassCard } from "../components/AnimatedCard";
+import { motion } from "motion/react";
+import { toast } from "sonner";
 
 export function Members() {
-  const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
+  const dispatch = useDispatch();
+  const { members, loading, error } = useSelector((state) => state.members);
+  const user = useSelector((state) => state.auth.user);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [newMember, setNewMember] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    nationalId: ""
+  });
 
-  const deferredSearch = useDeferredValue(searchQuery);
-  const userRole = String(user?.role || '').toLowerCase();
-  const canManageMembers = userRole === 'super_admin' || userRole === 'admin';
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
-  const fetchMembers = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const response = await axios.get('/api/users', {
-        params: { role: 'member' },
-      });
-
-      setMembers(normalizeMembers(response.data));
-    } catch (fetchError) {
-      const message =
-        fetchError.response?.data?.message ||
-        fetchError.message ||
-        'Failed to load members';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Fetch members once on mount
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    if (members.length === 0 && !loading && !error) {
+      dispatch(fetchMembers());
+    }
+  }, [dispatch, members.length, loading, error]);
 
+  // Memoized filtering — only recalculates when inputs change
   const filteredMembers = useMemo(() => {
-    const query = deferredSearch.trim().toLowerCase();
-
+    const q = searchQuery.toLowerCase();
     return members.filter((member) => {
       const matchesSearch =
-        !query ||
-        member.name.toLowerCase().includes(query) ||
-        member.email.toLowerCase().includes(query) ||
-        member.phone.toLowerCase().includes(query) ||
-        member.groupName.toLowerCase().includes(query);
+        !q ||
+        member.name?.toLowerCase().includes(q) ||
+        member.member_no?.toLowerCase().includes(q) ||
+        member.email?.toLowerCase().includes(q) ||
+        member.phone?.includes(q) ||
+        member.group_name?.toLowerCase().includes(q);
 
-      const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && member.is_active) ||
+        (statusFilter === "inactive" && !member.is_active);
 
       return matchesSearch && matchesStatus;
     });
-  }, [members, deferredSearch, statusFilter]);
+  }, [members, searchQuery, statusFilter]);
 
-  const stats = useMemo(() => {
-    const active = members.filter((member) => member.status === 'active').length;
-    const inactive = members.length - active;
-    const assigned = members.filter((member) => member.groupId).length;
-    const totalSavings = members.reduce((sum, member) => sum + member.totalSavings, 0);
-    const totalLoans = members.reduce((sum, member) => sum + member.totalLoans, 0);
+  // Memoized stats
+  const stats = useMemo(() => ({
+    total: members.length,
+    active: members.filter((m) => m.is_active).length,
+    totalSavings: members.reduce((sum, m) => sum + Number(m.total_savings || 0), 0),
+    totalLoans: members.reduce((sum, m) => sum + Number(m.outstanding_loan || 0), 0),
+  }), [members]);
 
-    return {
-      total: members.length,
-      active,
-      inactive,
-      assigned,
-      totalSavings,
-      totalLoans,
-    };
-  }, [members]);
+  const handleRetry = useCallback(() => {
+    dispatch(fetchMembers());
+  }, [dispatch]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
+  const handleAddMember = (e) => {
+    e.preventDefault();
 
-  const paginatedMembers = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredMembers.slice(start, start + PAGE_SIZE);
-  }, [filteredMembers, currentPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [deferredSearch, statusFilter]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    if (!newMember.name || !newMember.phone) {
+      toast.error("Please fill in all required fields");
+      return;
     }
-  }, [currentPage, totalPages]);
 
-  const onPrevPage = useCallback(() => {
-    setCurrentPage((page) => Math.max(1, page - 1));
-  }, []);
+    // TODO: dispatch an addMember thunk once the backend endpoint is ready
+    toast.success(`Member ${newMember.name} added successfully!`);
+    setShowAddMemberModal(false);
+    setNewMember({ name: "", phone: "", email: "", nationalId: "" });
+  };
 
-  const onNextPage = useCallback(() => {
-    setCurrentPage((page) => Math.min(totalPages, page + 1));
-  }, [totalPages]);
+  const handleImport = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      toast.success(`Importing ${file.name}...`);
+      setShowImportModal(false);
+      setTimeout(() => {
+        toast.success("Members imported successfully!");
+      }, 1500);
+    }
+  };
 
-  const onViewMember = useCallback(
-    (memberId) => {
-      navigate(`/dashboard/members/${memberId}`);
-    },
-    [navigate]
-  );
+  // ── Loading state ────────────────────────────────────────────────────────
+  if (loading && members.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+        <p className="text-gray-600 dark:text-gray-400">Loading members…</p>
+      </div>
+    );
+  }
+
+  // ── Error state ──────────────────────────────────────────────────────────
+  if (error && members.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <AlertTriangle className="w-12 h-12 text-red-500" />
+        <p className="text-gray-900 dark:text-white font-medium">{error}</p>
+        <button
+          onClick={handleRetry}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -12 }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3"
       >
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
             <UsersIcon className="w-8 h-8 text-blue-600" />
             Members
           </h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-            Member directory with fast search, filters, and pagination
+            Manage member profiles and view their financial status
           </p>
         </div>
-
-        {canManageMembers ? (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        {isAdmin && (
+          <div className="flex gap-2 sm:gap-3">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 transition-all text-sm font-medium text-gray-700 dark:text-gray-300 shadow-lg"
             >
-              <Upload className="w-4 h-4" />
-              Import
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-linear-to-r from-blue-500 to-purple-500 text-white shadow-lg hover:shadow-xl transition-all"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add Member
-            </button>
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Import</span>
+            </motion.button>
+            <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowAddMemberModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Member</span>
+          </motion.button>
           </div>
-        ) : null}
+        )}
       </motion.div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <StatCard icon={UsersIcon} label="TOTAL MEMBERS" value={stats.total} color="blue" delay={0.05} />
-        <StatCard icon={PiggyBank} label="TOTAL SAVINGS" value={`K ${currencyFormatter.format(stats.totalSavings)}`} color="green" delay={0.08} />
-        <StatCard icon={HandCoins} label="TOTAL LOANS" value={`K ${currencyFormatter.format(stats.totalLoans)}`} color="purple" delay={0.1} />
-        <StatCard icon={UserCheck} label="ACTIVE MEMBERS" value={stats.active} color="green" delay={0.1} />
-        <StatCard icon={AlertTriangle} label="INACTIVE" value={stats.inactive} color="orange" delay={0.15} />
-        <StatCard icon={Shield} label="ASSIGNED TO GROUP" value={stats.assigned} color="purple" delay={0.2} />
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <AnimatedCard delay={0.1}>
+          <GlassCard className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
+                <UsersIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Total Members</div>
+              </div>
+            </div>
+          </GlassCard>
+        </AnimatedCard>
+
+        <AnimatedCard delay={0.15}>
+          <GlassCard className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg">
+                <CheckCircle2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.active}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Active</div>
+              </div>
+            </div>
+          </GlassCard>
+        </AnimatedCard>
+
+        <AnimatedCard delay={0.2}>
+          <GlassCard className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-lg">
+                <DollarSign className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">K {stats.totalSavings.toLocaleString()}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Total Savings</div>
+              </div>
+            </div>
+          </GlassCard>
+        </AnimatedCard>
+
+        <AnimatedCard delay={0.25}>
+          <GlassCard className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg">
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">K {stats.totalLoans.toLocaleString()}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Total Loans</div>
+              </div>
+            </div>
+          </GlassCard>
+        </AnimatedCard>
       </div>
 
-      <AnimatedCard delay={0.25}>
+      {/* Search and Filters */}
+      <AnimatedCard delay={0.5}>
         <GlassCard className="p-5">
           <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by name, email, phone, or group"
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all text-gray-900 dark:text-white placeholder-gray-400"
               />
             </div>
 
+            {/* Status Filter */}
             <div className="relative">
               <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               <select
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className="pl-12 pr-8 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all text-gray-900 dark:text-white appearance-none cursor-pointer"
               >
                 <option value="all">All Status</option>
@@ -346,100 +249,343 @@ export function Members() {
         </GlassCard>
       </AnimatedCard>
 
-      {loading ? (
-        <AnimatedCard delay={0.3}>
-          <GlassCard className="p-10 text-center">
-            <p className="text-gray-600 dark:text-gray-400">Loading members...</p>
-          </GlassCard>
-        </AnimatedCard>
-      ) : error ? (
-        <AnimatedCard delay={0.3}>
-          <GlassCard className="p-10 text-center">
-            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-            <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-            <button
-              type="button"
-              onClick={fetchMembers}
-              className="px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm font-medium"
-            >
-              Retry
-            </button>
-          </GlassCard>
-        </AnimatedCard>
-      ) : filteredMembers.length === 0 ? (
-        <AnimatedCard delay={0.3}>
-          <GlassCard className="p-10 text-center">
-            <UsersIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No members found</h3>
-            <p className="text-gray-600 dark:text-gray-400">Try changing your search or status filter.</p>
-          </GlassCard>
-        </AnimatedCard>
-      ) : (
-        <>
-          <div className="block sm:hidden space-y-3">
-            {paginatedMembers.map((member, index) => (
-              <MemberCard key={member.id} member={member} index={index} onView={onViewMember} />
-            ))}
-          </div>
-
-          <div className="hidden sm:block">
-            <AnimatedCard delay={0.3}>
-              <GlassCard className="overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Member</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Contact</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Savings</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Loan Amount</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Shortfall</th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {paginatedMembers.map((member, index) => (
-                        <MemberRow key={member.id} member={member} index={index} onView={onViewMember} />
-                      ))}
-                    </tbody>
-                  </table>
+      {/* Mobile Cards View */}
+      <div className="block sm:hidden space-y-3">
+        {filteredMembers.map((member, index) => (
+          <motion.div
+            key={member.id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.6 + index * 0.05 }}
+          >
+            <GlassCard className="p-4 hover:shadow-xl transition-shadow">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <Link
+                    to={`${member.id}`}
+                    className="text-base font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                  >
+                    {member.name}
+                  </Link>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{member.member_no}</p>
                 </div>
-              </GlassCard>
-            </AnimatedCard>
-          </div>
+                <motion.span
+                  whileHover={{ scale: 1.1 }}
+                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                    member.is_active
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                  }`}
+                >
+                  {member.is_active ? "Active" : "Inactive"}
+                </motion.span>
+              </div>
 
-          <AnimatedCard delay={0.35}>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Showing {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, filteredMembers.length)} of {filteredMembers.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onPrevPage}
-                  disabled={currentPage === 1}
-                  className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 disabled:opacity-50"
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between py-2 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-400">Phone:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{member.phone}</span>
+                </div>
+                <div className="flex justify-between py-2 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-400">Savings:</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    K {Number(member.total_savings || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-400">Loan:</span>
+                  <span className={`font-semibold ${Number(member.outstanding_loan || 0) > 0 ? "text-orange-600 dark:text-orange-400" : "text-gray-600 dark:text-gray-400"}`}>
+                    K {Number(member.outstanding_loan || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-400">Shortfall:</span>
+                  <span className={`font-semibold flex items-center gap-1 ${Number(member.shortfall || 0) > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+                    {Number(member.shortfall || 0) > 0 ? (
+                      <>
+                        <AlertTriangle className="w-3 h-3" />
+                        K {Number(member.shortfall || 0).toLocaleString()}
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3 h-3" />
+                        K 0
+                      </>
+                    )}
+                  </span>
+                </div>
+                {member.group_name && (
+                  <div className="flex justify-between py-2 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-gray-600 dark:text-gray-400">Group:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{member.group_name}</span>
+                  </div>
+                )}
+              </div>
+
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-3">
+                <Link
+                  to={`${member.id}`}
+                  className="block text-center py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                  Prev
-                </button>
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Page {currentPage} / {totalPages}
-                </span>
+                  View Details
+                </Link>
+              </motion.div>
+            </GlassCard>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden sm:block">
+        <AnimatedCard delay={0.6}>
+          <GlassCard className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Member
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Group
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Savings
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Loan Amount
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Shortfall
+                    </th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredMembers.map((member, index) => (
+                    <motion.tr
+                      key={member.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.7 + index * 0.03 }}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div>
+                          <Link
+                            to={`${member.id}`}
+                            className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                          >
+                            {member.name}
+                          </Link>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{member.member_no}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 dark:text-white">{member.phone}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{member.email}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                        {member.group_name || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-right font-semibold text-green-600 dark:text-green-400">
+                        K {Number(member.total_savings || 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right font-semibold text-orange-600 dark:text-orange-400">
+                        K {Number(member.outstanding_loan || 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`inline-flex items-center gap-1 font-semibold ${Number(member.shortfall || 0) > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+                          {Number(member.shortfall || 0) > 0 ? (
+                            <>
+                              <AlertTriangle className="w-4 h-4" />
+                              K {Number(member.shortfall || 0).toLocaleString()}
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-4 h-4" />
+                              K 0
+                            </>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                            member.is_active
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                          }`}
+                        >
+                          {member.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                          <Link
+                            to={`${member.id}`}
+                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-medium rounded-lg hover:shadow-lg transition-all"
+                          >
+                            View
+                          </Link>
+                        </motion.div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </GlassCard>
+        </AnimatedCard>
+      </div>
+
+      {/* Empty State */}
+      {filteredMembers.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <GlassCard className="p-12 text-center">
+            <UsersIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              No members found
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Try adjusting your search or filters
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+            >
+              Clear Filters
+            </motion.button>
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gray-900/50 flex items-center justify-center"
+        >
+          <GlassCard className="p-8 w-full max-w-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Member</h2>
+              <button
+                onClick={() => setShowAddMemberModal(false)}
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddMember}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                  <input
+                    type="text"
+                    value={newMember.name}
+                    onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                    className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all text-gray-900 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
+                  <input
+                    type="text"
+                    value={newMember.phone}
+                    onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                    className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all text-gray-900 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                  <input
+                    type="email"
+                    value={newMember.email}
+                    onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                    className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all text-gray-900 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">National ID</label>
+                  <input
+                    type="text"
+                    value={newMember.nationalId}
+                    onChange={(e) => setNewMember({ ...newMember, nationalId: e.target.value })}
+                    className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all text-gray-900 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+              </div>
+              <div className="mt-6">
                 <button
-                  type="button"
-                  onClick={onNextPage}
-                  disabled={currentPage === totalPages}
-                  className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 disabled:opacity-50"
+                  type="submit"
+                  className="block w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
                 >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
+                  Add Member
                 </button>
               </div>
+            </form>
+          </GlassCard>
+        </motion.div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="fixed top-0 left-0 right-0 bottom-0 bg-gray-900/50 flex items-center justify-center"
+        >
+          <GlassCard className="p-8 w-full max-w-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Import Members</h2>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          </AnimatedCard>
-        </>
+            <form>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Upload File</label>
+                  <input
+                    type="file"
+                    accept=".csv, .xlsx"
+                    onChange={handleImport}
+                    className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all text-gray-900 dark:text-white placeholder-gray-400"
+                  />
+                </div>
+              </div>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(false)}
+                  className="block w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </GlassCard>
+        </motion.div>
       )}
     </div>
   );

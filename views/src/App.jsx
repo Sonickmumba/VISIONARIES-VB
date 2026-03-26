@@ -29,14 +29,12 @@ function App() {
           </Route>
 
           <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Layout />}>
+              <Route index element={<Dashboard />} />
               <Route path="members" element={<Members />} />
               <Route path="members/:memberId" element={<MemberDetail />} />
-              <Route path="/help" element={<HelpPage />} />
+              <Route path="help" element={<HelpPage />} />
               <Route path="record-savings" element={<RecordSavings />} />
-
-
             </Route>
           </Route>
         </Routes>

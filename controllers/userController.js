@@ -24,10 +24,23 @@ exports.getAllUsers = async (req, res) => {
 
     let query = `
       SELECT u.id, u.email, u.name, u.phone, u.role, u.is_active, u.created_at, u.member_no,
-             g.id as group_id, g.name as group_name
+             g.id as group_id, g.name as group_name,
+             COALESCE(s.total_savings, 0) AS total_savings,
+             COALESCE(l.outstanding_loan, 0) AS outstanding_loan,
+             GREATEST(20000 - COALESCE(s.total_savings, 0), 0) AS shortfall
       FROM users u
       LEFT JOIN group_members gm ON u.id = gm.user_id AND gm.is_active = true
       LEFT JOIN groups g ON gm.group_id = g.id AND g.is_active = true
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(CASE WHEN sv.status = 'verified' THEN sv.amount ELSE 0 END), 0) AS total_savings
+        FROM savings sv
+        WHERE sv.user_id = u.id
+      ) s ON true
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(CASE WHEN ln.status IN ('approved', 'disbursed', 'defaulted') THEN GREATEST(ln.total_amount - COALESCE(ln.amount_repaid, 0), 0) ELSE 0 END), 0) AS outstanding_loan
+        FROM loans ln
+        WHERE ln.user_id = u.id
+      ) l ON true
       WHERE 1=1
     `;
 
