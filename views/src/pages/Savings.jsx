@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import './List.css'
 
 function Savings() {
   const [savings, setSavings] = useState([])

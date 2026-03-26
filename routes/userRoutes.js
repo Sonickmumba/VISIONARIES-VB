@@ -19,6 +19,7 @@ const updateRoleValidation = [
 
 // Routes
 router.get('/', authenticate, isAdmin, userController.getAllUsers);
+router.get('/:id/details', authenticate, userController.getMemberDetails);
 router.get('/:id', authenticate, userController.getUserById);
 router.put('/:id', authenticate, updateUserValidation, validate, userController.updateUser);
 router.put('/:id/role', authenticate, isSuperAdmin, updateRoleValidation, validate, userController.updateUserRole);

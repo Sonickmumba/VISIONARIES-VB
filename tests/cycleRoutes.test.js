@@ -12,6 +12,7 @@ jest.mock('../middleware/auth', () => ({
 jest.mock('../controllers/cycleController', () => ({
   createCycle: jest.fn((req, res) => res.status(201).json({ success: true, route: 'createCycle' })),
   getCyclesByGroup: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getCyclesByGroup' })),
+  getCycleStatistics: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getCycleStatistics' })),
   getCycleById: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getCycleById' })),
   updateCycle: jest.fn((req, res) => res.status(200).json({ success: true, route: 'updateCycle' })),
   closeCycle: jest.fn((req, res) => res.status(200).json({ success: true, route: 'closeCycle' })),
@@ -65,6 +66,14 @@ describe('cycleRoutes integration tests', () => {
     expect(response.status).toBe(200);
     expect(response.body.route).toBe('getCyclesByGroup');
     expect(cycleController.getCyclesByGroup).toHaveBeenCalled();
+  });
+
+  test('GET /api/cycles/:id/statistics calls getCycleStatistics', async () => {
+    const response = await request(app).get('/api/cycles/cycle-1/statistics');
+
+    expect(response.status).toBe(200);
+    expect(response.body.route).toBe('getCycleStatistics');
+    expect(cycleController.getCycleStatistics).toHaveBeenCalled();
   });
 
   test('POST /api/cycles/:id/calculate-shareout calls calculateShareout', async () => {

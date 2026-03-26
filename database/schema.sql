@@ -3,9 +3,13 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Sequence for member numbers
+CREATE SEQUENCE IF NOT EXISTS member_no_seq START 1;
+
 -- Users table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    member_no VARCHAR(20) UNIQUE NOT NULL DEFAULT ('VB-' || LPAD(nextval('member_no_seq')::text, 3, '0')),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -193,6 +197,7 @@ CREATE TABLE audit_logs (
 
 -- Create indexes for better performance
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_member_no ON users(member_no);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_group_members_group ON group_members(group_id);
 CREATE INDEX idx_group_members_user ON group_members(user_id);

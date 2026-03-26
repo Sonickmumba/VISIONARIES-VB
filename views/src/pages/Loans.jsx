@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import './List.css'
+
 
 function Loans() {
   const [loans, setLoans] = useState([])

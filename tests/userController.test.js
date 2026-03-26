@@ -120,4 +120,100 @@ describe('userController unit tests', () => {
     });
     expect(client.release).toHaveBeenCalled();
   });
+
+  test('updateUserRole prevents demoting the last active super admin', async () => {
+    const oldUser = { id: 'super-1', role: 'super_admin', is_active: true };
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ rows: [oldUser] })
+        .mockResolvedValueOnce({ rows: [{ count: 0 }] })
+        .mockResolvedValueOnce({}),
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      params: { id: 'super-1' },
+      body: { role: 'admin' },
+      user: { id: 'super-2' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await userController.updateUserRole(req, res);
+
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Cannot demote the last active super admin',
+    });
+  });
+
+  test('toggleUserStatus prevents deactivating own account', async () => {
+    const oldUser = { id: 'super-1', role: 'super_admin', is_active: true };
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ rows: [oldUser] })
+        .mockResolvedValueOnce({}),
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      params: { id: 'super-1' },
+      user: { id: 'super-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await userController.toggleUserStatus(req, res);
+
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'You cannot deactivate your own account',
+    });
+  });
+
+  test('deleteUser prevents deleting the last active super admin', async () => {
+    const oldUser = { id: 'super-1', role: 'super_admin', is_active: true };
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ rows: [oldUser] })
+        .mockResolvedValueOnce({ rows: [{ count: 0 }] })
+        .mockResolvedValueOnce({}),
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      params: { id: 'super-1' },
+      user: { id: 'super-2' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await userController.deleteUser(req, res);
+
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Cannot delete the last active super admin',
+    });
+  });
 });
