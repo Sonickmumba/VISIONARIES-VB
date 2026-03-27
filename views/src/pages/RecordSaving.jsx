@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { createBulkSavings, fetchSavingsByCycle } from "../store/slices/savingsSlice";
-import { fetchMembers } from "../store/slices/memberSlice";
 import { Save, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,13 +22,6 @@ export function RecordSavings() {
   const [month, setMonth] = useState(null); // set after we know cycle range
   const [year, setYear] = useState(new Date().getFullYear());
   const [amounts, setAmounts] = useState({});
-
-  // Fetch members if not already loaded
-  useEffect(() => {
-    if (members.length === 0 && !membersLoading) {
-      dispatch(fetchMembers());
-    }
-  }, [dispatch, members.length, membersLoading]);
 
   // Fetch existing savings for the current cycle (to compute remaining allowance)
   useEffect(() => {
