@@ -99,7 +99,10 @@ export function Layout() {
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
   const visibleNavItems = useMemo(
-    () => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
+    () => [
+      ...NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
+      ...(isAdmin ? [{ path: "/dashboard/cycles", label: "Manage Cycles", icon: Calendar }] : []),
+    ],
     [isAdmin]
   );
 
