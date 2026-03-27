@@ -10,6 +10,7 @@ import Members from './pages/Members'
 import { MemberDetail } from './pages/MemberDetails'
 import { HelpPage } from './pages/HelperPage'
 import { RecordSavings } from './pages/RecordSaving'
+import { DisburseLoan } from './pages/DisburseLoan'
 import { Groups } from './pages/Groups'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
@@ -37,6 +38,8 @@ function App() {
               <Route path="help" element={<HelpPage />} />
               <Route path="record-savings" element={<RecordSavings />} />
               <Route path="groups" element={<Groups />} />
+              <Route path="disburse-loan" element={<DisburseLoan />} />
+              <Route path="notifications" element={<div className="p-4">Page not found</div>} />
             </Route>
           </Route>
         </Routes>
