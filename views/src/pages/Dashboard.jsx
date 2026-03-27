@@ -137,8 +137,8 @@ export function Dashboard() {
                 </h2>
               </div>
               <p className="text-blue-100 text-sm">
-                {new Date(cycle.startDate).toLocaleDateString()} -{" "}
-                {new Date(cycle.endDate).toLocaleDateString()}
+                {new Date(cycle.start_date).toLocaleDateString()} -{" "}
+                {new Date(cycle.end_date).toLocaleDateString()}
               </p>
             </div>
             <div className="glass px-4 py-2 rounded-lg backdrop-blur-md">
