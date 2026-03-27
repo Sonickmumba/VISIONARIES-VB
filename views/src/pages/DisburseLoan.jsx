@@ -10,22 +10,16 @@ export function DisburseLoan() {
   const members = useSelector((state) => state.members.members);
   const selectedGroup = useSelector((state) => state.groups.selectedGroup);
   const currentCycle = useSelector((state) => state.cycles.currentCycle);
-  
-  // DEBUG: Log selected group and all members
-  console.log('Selected Group:', selectedGroup);
-  console.log('All Members:', members);
 
   // Filter members by selected group
   const groupMembers = members.filter(m => m.group_id === selectedGroup?.id);
-  // DEBUG: Log filtered group members
-  console.log('Filtered Group Members:', groupMembers);
 
   const [selectedMember, setSelectedMember] = useState("");
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("");
 
   const selectedMemberData = groupMembers.find((m) => m.id === selectedMember);
-  const loanInterest = Math.max(parseFloat(amount) * 0.1, 3000) || 0; // 10% or minimum K3,000
+  const loanInterest = Math.max(parseFloat(amount) * 0.15, 0) || 0; // 15% or minimum K3,000
   const totalRepayment = parseFloat(amount) + loanInterest || 0;
   
   const newBorrowedTotal = (selectedMemberData?.loanAmount || 0) + parseFloat(amount || 0);
@@ -53,9 +47,6 @@ export function DisburseLoan() {
       toast.error(err || "Failed to disburse loan");
     }
   };
-
-  console.log("group Member Data:", members);
-  console.log(selectedMemberData)
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -142,7 +133,7 @@ export function DisburseLoan() {
                   <span className="font-semibold">K {parseFloat(amount).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Interest (10% or K3,000):</span>
+                  <span className="text-gray-600">Interest (15%):</span>
                   <span className="font-semibold text-orange-600">K {loanInterest.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t">
