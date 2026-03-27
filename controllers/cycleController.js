@@ -6,7 +6,7 @@ const {
   calculateCommonInterestDistribution,
   calculateShareout: calculateShareoutAmount,
 } = require('../utils/interest.util');
-const { NOTIFICATION_TYPES, TRANSACTION_TYPES } = require('../config/constants');
+const { NOTIFICATION_TYPES, TRANSACTION_TYPES, ALLOWED_CYCLE_TYPES } = require('../config/constants');
 
 /**
  * Create cycle
@@ -30,6 +30,24 @@ exports.createCycle = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Group not found',
+      });
+    }
+
+    // Validate cycle duration (must be Jan-Jun or Jan-Dec of the same year)
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const isValidCycle = ALLOWED_CYCLE_TYPES.some(
+      (ct) =>
+        start.getMonth() + 1 === ct.startMonth &&
+        end.getMonth() + 1 === ct.endMonth &&
+        start.getFullYear() === end.getFullYear()
+    );
+    if (!isValidCycle) {
+      const allowed = ALLOWED_CYCLE_TYPES.map((ct) => ct.label).join(' or ');
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: `Invalid cycle period. Allowed cycles: ${allowed}`,
       });
     }
 

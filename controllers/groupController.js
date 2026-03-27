@@ -63,6 +63,21 @@ exports.createGroup = async (req, res) => {
 };
 
 /**
+ * Get all groups (public — id + name only, for signup page)
+ */
+exports.getPublicGroups = async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, name FROM groups WHERE is_active = true ORDER BY name`
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get public groups error:', error);
+    res.status(500).json({ success: false, message: 'Error retrieving groups' });
+  }
+};
+
+/**
  * Get all groups
  */
 exports.getAllGroups = async (req, res) => {

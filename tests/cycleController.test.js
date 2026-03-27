@@ -52,9 +52,9 @@ describe('cycleController unit tests', () => {
     const req = {
       body: {
         groupId: 'group-1',
-        name: 'March Cycle',
-        startDate: '2026-03-01',
-        endDate: '2026-08-31',
+        name: 'H1 Cycle',
+        startDate: '2026-01-01',
+        endDate: '2026-06-30',
       },
       user: { id: 'admin-1' },
       ip: '127.0.0.1',
@@ -74,22 +74,13 @@ describe('cycleController unit tests', () => {
     expect(client.release).toHaveBeenCalled();
   });
 
-  test('createCycle returns 201 and creates notifications on success', async () => {
-    const createdCycle = {
-      id: 'cycle-1',
-      group_id: 'group-1',
-      name: 'March Cycle',
-      status: 'active',
-    };
-
+  test('createCycle returns 400 for invalid cycle duration', async () => {
     const client = {
       query: jest
         .fn()
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({ rows: [{ id: 'group-1' }] })
-        .mockResolvedValueOnce({ rows: [createdCycle] })
-        .mockResolvedValueOnce({ rows: [{ user_id: 'member-1' }, { user_id: 'member-2' }] })
-        .mockResolvedValueOnce({}),
+        .mockResolvedValueOnce({})                                // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'group-1' }] })    // group exists
+        .mockResolvedValueOnce({}),                               // ROLLBACK
       release: jest.fn(),
     };
 
@@ -98,9 +89,52 @@ describe('cycleController unit tests', () => {
     const req = {
       body: {
         groupId: 'group-1',
-        name: 'March Cycle',
+        name: 'Bad Cycle',
         startDate: '2026-03-01',
         endDate: '2026-08-31',
+      },
+      user: { id: 'admin-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await cycleController.createCycle(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, message: expect.stringContaining('Invalid cycle period') })
+    );
+    expect(client.release).toHaveBeenCalled();
+  });
+
+  test('createCycle returns 201 and creates notifications on success', async () => {
+    const createdCycle = {
+      id: 'cycle-1',
+      group_id: 'group-1',
+      name: 'H1 Cycle',
+      status: 'active',
+    };
+
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})                                                  // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'group-1' }] })                       // group exists
+        .mockResolvedValueOnce({ rows: [createdCycle] })                             // INSERT cycle
+        .mockResolvedValueOnce({ rows: [{ user_id: 'member-1' }, { user_id: 'member-2' }] }) // members
+        .mockResolvedValueOnce({}),                                                  // COMMIT
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      body: {
+        groupId: 'group-1',
+        name: 'H1 Cycle',
+        startDate: '2026-01-01',
+        endDate: '2026-06-30',
       },
       user: { id: 'admin-1' },
       ip: '127.0.0.1',
@@ -116,7 +150,7 @@ describe('cycleController unit tests', () => {
       ['member-1', 'member-2'],
       expect.any(String),
       'New Cycle Started',
-      'A new savings cycle "March Cycle" has been started',
+      'A new savings cycle "H1 Cycle" has been started',
       'cycle-1'
     );
     expect(client.query).toHaveBeenCalledWith('COMMIT');

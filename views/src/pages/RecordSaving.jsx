@@ -1,511 +1,352 @@
-import { useState, useCallback, useMemo, memo, useEffect } from "react";
-import {
-  Save,
-  AlertCircle,
-  PiggyBank,
-  RefreshCw,
-  TrendingUp,
-  Users,
-  Wallet,
-} from "lucide-react";
-import { motion } from "motion/react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { createBulkSavings, fetchSavingsByCycle } from "../store/slices/savingsSlice";
+import { fetchMembers } from "../store/slices/memberSlice";
+import { Save, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useData } from "../components/DataContext";
 
 const MAX_SAVINGS = 30000;
-const INTEREST_RATE = 0.15;
-const MEMBERSHIP_FEE = 80;
-const SOCIAL_FUND = 240;
-
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
 ];
 
-const currencyFormatter = new Intl.NumberFormat("en-ZM", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-// ─── Memoised desktop table row ──────────────────────────────────────────────
-const MemberSavingRow = memo(function MemberSavingRow({ item, index, onChange }) {
-  const amount = parseFloat(item.amount) || 0;
-  const interest = amount * INTEREST_RATE;
-  const accumulated = amount + interest;
-  const exceedsMax = amount > MAX_SAVINGS;
-
-  return (
-    <motion.tr
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.3) }}
-      className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
-    >
-      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{index + 1}</td>
-      <td className="px-6 py-4">
-        <div>
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.memberName}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{item.memberNo}</p>
-        </div>
-      </td>
-      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-        K {currencyFormatter.format(item.currentSavings)}
-      </td>
-      <td className="px-6 py-4">
-        <div>
-          <input
-            type="number"
-            value={item.amount}
-            onChange={(e) => onChange(item.memberId, e.target.value)}
-            placeholder="0.00"
-            className={`w-32 px-3 py-1.5 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 dark:bg-gray-800 dark:text-white ${
-              exceedsMax
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-            }`}
-            min="0"
-            max={MAX_SAVINGS}
-            step="0.01"
-          />
-          {exceedsMax && <p className="text-xs text-red-600 mt-1">Max K30,000</p>}
-        </div>
-      </td>
-      <td className="px-6 py-4 text-sm font-medium text-green-600 dark:text-green-400">
-        K {currencyFormatter.format(interest)}
-      </td>
-      <td className="px-6 py-4 text-sm font-semibold text-blue-700 dark:text-blue-400">
-        K {currencyFormatter.format(accumulated)}
-      </td>
-    </motion.tr>
-  );
-});
-
-// ─── Memoised mobile card ─────────────────────────────────────────────────────
-const MemberSavingCard = memo(function MemberSavingCard({ item, onChange }) {
-  const amount = parseFloat(item.amount) || 0;
-  const interest = amount * INTEREST_RATE;
-  const accumulated = amount + interest;
-  const exceedsMax = amount > MAX_SAVINGS;
-
-  return (
-    <div className="p-4 border-b dark:border-gray-700 last:border-b-0">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="font-semibold text-gray-900 dark:text-white text-sm">{item.memberName}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{item.memberNo}</p>
-        </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
-          Balance: K {currencyFormatter.format(item.currentSavings)}
-        </span>
-      </div>
-
-      <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">
-        Savings Amount (K)
-      </label>
-      <input
-        type="number"
-        value={item.amount}
-        onChange={(e) => onChange(item.memberId, e.target.value)}
-        placeholder="0.00"
-        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
-          exceedsMax ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-        }`}
-        min="0"
-        max={MAX_SAVINGS}
-        step="0.01"
-      />
-      {exceedsMax && <p className="text-xs text-red-600 mt-1">Maximum K30,000 allowed</p>}
-
-      {amount > 0 && !exceedsMax && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
-            <p className="text-xs text-green-700 dark:text-green-400 font-medium">Interest (15%)</p>
-            <p className="text-sm text-green-800 dark:text-green-300 font-semibold">
-              K {currencyFormatter.format(interest)}
-            </p>
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
-            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium">Accumulated</p>
-            <p className="text-sm text-blue-800 dark:text-blue-300 font-semibold">
-              K {currencyFormatter.format(accumulated)}
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
-
-// ─── Main component ──────────────────────────────────────────────────────────
 export function RecordSavings() {
-  const {
-    members,
-    currentCycle,
-    addSavings,
-    isLoadingMembers,
-    membersError,
-    refreshMembers,
-  } = useData();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { members, loading: membersLoading } = useSelector((state) => state.members);
+  const { submitting, savings: cycleSavings } = useSelector((state) => state.savings);
+  const currentCycle = useSelector((state) => state.cycles.currentCycle);
+  const selectedGroup = useSelector((state) => state.groups.selectedGroup);
 
-  const currentMonth = new Date().getMonth();
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [month, setMonth] = useState(null); // set after we know cycle range
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [amounts, setAmounts] = useState({});
 
-  const [savingsData, setSavingsData] = useState([]);
-
+  // Fetch members if not already loaded
   useEffect(() => {
-    setSavingsData((prev) => {
-      const amountMap = new Map(prev.map((item) => [item.memberId, item.amount]));
-      return members.map((m) => ({
-        memberId: m.id,
-        memberNo: m.memberNo,
-        memberName: m.name,
-        currentSavings: m.currentSavings,
-        amount: amountMap.get(m.id) || "",
-      }));
-    });
-  }, [members]);
+    if (members.length === 0 && !membersLoading) {
+      dispatch(fetchMembers());
+    }
+  }, [dispatch, members.length, membersLoading]);
 
-  const handleAmountChange = useCallback((memberId, value) => {
-    setSavingsData((prev) =>
-      prev.map((item) => (item.memberId === memberId ? { ...item, amount: value } : item))
-    );
-  }, []);
+  // Fetch existing savings for the current cycle (to compute remaining allowance)
+  useEffect(() => {
+    if (currentCycle?.id) {
+      dispatch(fetchSavingsByCycle(currentCycle.id));
+    }
+  }, [dispatch, currentCycle?.id]);
 
-  const handleReset = useCallback(() => {
-    setSavingsData((prev) => prev.map((item) => ({ ...item, amount: "" })));
-  }, []);
+  // Compute months available within the cycle's date range
+  const allowedMonths = useMemo(() => {
+    if (!currentCycle?.start_date || !currentCycle?.end_date) return [];
+    const start = new Date(currentCycle.start_date);
+    const end = new Date(currentCycle.end_date);
+    const result = [];
+    let d = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (d <= end) {
+      result.push({ month: d.getMonth() + 1, year: d.getFullYear() });
+      d.setMonth(d.getMonth() + 1);
+    }
+    return result;
+  }, [currentCycle?.start_date, currentCycle?.end_date]);
 
-  // Derived totals — only recompute when savingsData changes
-  const totals = useMemo(() => {
-    return savingsData.reduce(
-      (acc, item) => {
-        const amount = parseFloat(item.amount) || 0;
-        const interest = amount * INTEREST_RATE;
-        return {
-          totalAmount: acc.totalAmount + amount,
-          totalInterest: acc.totalInterest + interest,
-          totalAccumulated: acc.totalAccumulated + amount + interest,
-          filledCount: acc.filledCount + (amount > 0 ? 1 : 0),
-        };
-      },
-      { totalAmount: 0, totalInterest: 0, totalAccumulated: 0, filledCount: 0 }
-    );
-  }, [savingsData]);
+  // Auto-select first allowed month if month not yet set
+  useEffect(() => {
+    if (allowedMonths.length > 0 && month === null) {
+      const now = new Date();
+      const cur = allowedMonths.find(
+        (m) => m.month === now.getMonth() + 1 && m.year === now.getFullYear()
+      );
+      if (cur) {
+        setMonth(cur.month);
+        setYear(cur.year);
+      } else {
+        setMonth(allowedMonths[0].month);
+        setYear(allowedMonths[0].year);
+      }
+    }
+  }, [allowedMonths, month]);
 
-  const hasErrors = useMemo(
-    () => savingsData.some((item) => parseFloat(item.amount) > MAX_SAVINGS),
-    [savingsData]
-  );
+  // Compute per-member cycle totals from loaded savings
+  const memberCycleTotals = useMemo(() => {
+    const totals = {};
+    if (Array.isArray(cycleSavings)) {
+      for (const s of cycleSavings) {
+        const uid = s.user_id;
+        totals[uid] = (totals[uid] || 0) + parseFloat(s.amount || 0);
+      }
+    }
+    return totals;
+  }, [cycleSavings]);
 
-  const handleSubmit = useCallback(
-    async (e) => {
-      e.preventDefault();
-      if (hasErrors) {
-        toast.error("Please fix the amount errors before saving.");
+  // Filter members by selected group
+  const groupMembers = useMemo(() => {
+    if (!selectedGroup) return members;
+    return members.filter((m) => m.group_id === selectedGroup.id);
+  }, [members, selectedGroup]);
+
+  const handleAmountChange = (memberId, value) => {
+    setAmounts((prev) => ({ ...prev, [memberId]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!currentCycle?.id) {
+      toast.error("No active cycle selected");
+      return;
+    }
+
+    const entries = [];
+    for (const m of groupMembers) {
+      const raw = amounts[m.id];
+      const amt = parseFloat(raw);
+      if (!raw || !Number.isFinite(amt) || amt <= 0) continue;
+
+      const remaining = MAX_SAVINGS - (memberCycleTotals[m.id] || 0);
+      if (amt > remaining) {
+        toast.error(
+          `${m.name} can only save K${remaining.toLocaleString()} more this cycle (already saved K${(memberCycleTotals[m.id] || 0).toLocaleString()})`
+        );
         return;
       }
-      const toRecord = savingsData.filter((item) => parseFloat(item.amount) > 0);
-      if (toRecord.length === 0) {
-        toast.warning("No savings amounts have been entered.");
-        return;
-      }
-      setIsSubmitting(true);
-      try {
-        const monthNumber = selectedMonth + 1;
-        const year = Number(cycleYear);
-        await Promise.all(
-          toRecord.map((item) =>
-            addSavings(item.memberId, parseFloat(item.amount), monthNumber, year)
-          )
-        );
-        toast.success(
-          `Savings for ${MONTHS[selectedMonth]} recorded — ${toRecord.length} member${toRecord.length > 1 ? "s" : ""} updated.`
-        );
-        handleReset();
-      } catch {
-        toast.error("Failed to record savings. Please try again.");
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [savingsData, selectedMonth, hasErrors, addSavings, handleReset]
-  );
+      entries.push({ userId: m.id, amount: amt });
+    }
 
-  const cycleYear = currentCycle?.startDate?.slice(0, 4) ?? new Date().getFullYear();
+    if (entries.length === 0) {
+      toast.error("Please enter at least one savings amount");
+      return;
+    }
 
-  if (!currentCycle) {
+    try {
+      await dispatch(
+        createBulkSavings({ cycleId: currentCycle.id, month, year, entries })
+      ).unwrap();
+      toast.success(`Savings recorded for ${entries.length} member(s)!`);
+      navigate("..");
+    } catch (err) {
+      if (err?.duplicateUserIds?.length) {
+        const dupeNames = err.duplicateUserIds
+          .map((uid) => groupMembers.find((m) => m.id === uid)?.name || uid)
+          .join(", ");
+        toast.error(`Already recorded for ${MONTHS[(month || 1) - 1]} ${year}: ${dupeNames}`);
+      } else if (err?.overLimitUsers?.length) {
+        const names = err.overLimitUsers
+          .map((u) => groupMembers.find((m) => m.id === u.userId)?.name || u.userId)
+          .join(", ");
+        toast.error(`Per-cycle limit exceeded for: ${names}`);
+      } else {
+        const msg = typeof err === "string" ? err : err?.message || "Failed to record savings";
+        toast.error(msg);
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    navigate("..");
+  };
+
+  if (membersLoading && members.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <p className="text-gray-500 dark:text-gray-400">Loading cycle data…</p>
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+        <p className="text-gray-600">Loading members…</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <PiggyBank className="w-7 h-7 text-blue-600" />
-          Record Savings
-        </h1>
-        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-          Record monthly savings for{" "}
-          <span className="font-semibold text-blue-600 dark:text-blue-400">
-            {currentCycle.name}
-          </span>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">💰 Record Savings</h1>
+        <p className="text-sm sm:text-base text-gray-600 mt-1">
+          Record monthly savings{currentCycle ? ` for ${currentCycle.name}` : ""}
         </p>
-      </motion.div>
+      </div>
 
-      {membersError ? (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-red-700 dark:text-red-300">{membersError}</p>
-            <button
-              type="button"
-              onClick={refreshMembers}
-              className="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Live summary cards ─────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.08 }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-      >
-        {[
-          {
-            icon: Users,
-            color: "text-purple-600",
-            label: "Members",
-            value: (
-              <>
-                {totals.filledCount}
-                <span className="text-base font-normal text-gray-500 dark:text-gray-400">
-                  /{members.length}
-                </span>
-              </>
-            ),
-          },
-          {
-            icon: Wallet,
-            color: "text-green-600",
-            label: "Total Savings",
-            value: `K ${currencyFormatter.format(totals.totalAmount)}`,
-          },
-          {
-            icon: TrendingUp,
-            color: "text-blue-600",
-            label: "Total Interest",
-            value: (
-              <span className="text-green-600 dark:text-green-400">
-                K {currencyFormatter.format(totals.totalInterest)}
-              </span>
-            ),
-          },
-          {
-            icon: PiggyBank,
-            color: "text-orange-600",
-            label: "Accumulated",
-            value: (
-              <span className="text-blue-700 dark:text-blue-400">
-                K {currencyFormatter.format(totals.totalAccumulated)}
-              </span>
-            ),
-          },
-        ].map(({ icon: Icon, color, label, value }) => (
-          <div
-            key={label}
-            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4"
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Icon className={`w-4 h-4 ${color}`} />
-              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                {label}
-              </p>
-            </div>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
-          </div>
-        ))}
-      </motion.div>
-
-      {isLoadingMembers ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300 text-sm">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            Loading members...
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Info banner ───────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.14 }}
-        className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4"
-      >
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-900 dark:text-blue-300 text-sm sm:text-base">
-              Important Information
-            </h4>
-            <p className="text-xs sm:text-sm text-blue-800 dark:text-blue-400 mt-1">
-              • Maximum savings: K30,000 per member per month
-              <br />
-              • Interest rate: 15% compound interest
-              <br />• Membership fee: K{MEMBERSHIP_FEE} &bull; Social fund: K{SOCIAL_FUND}
+            <h4 className="font-semibold text-blue-900 text-sm sm:text-base">Important Information</h4>
+            <p className="text-xs sm:text-sm text-blue-800 mt-1">
+              • Maximum savings: K30,000 per member per cycle<br />
+              • Interest rate: 15% compound interest<br />
+              • Membership fee: K80 • Social fund: K240
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* ── Month selector ────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3"
-      >
-        <label
-          htmlFor="month-select"
-          className="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap"
-        >
-          Recording for month:
-        </label>
-        <select
-          id="month-select"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(Number(e.target.value))}
-          className="w-full sm:w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-        >
-          {MONTHS.map((month, idx) => (
-            <option key={month} value={idx}>
-              {month} {cycleYear}
-            </option>
-          ))}
-        </select>
-      </motion.div>
-
-      {/* ── Form ──────────────────────────────────────────────────────── */}
-      <form onSubmit={handleSubmit}>
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.24 }}
-          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
-        >
-          {/* Mobile cards */}
-          <div className="block sm:hidden divide-y dark:divide-gray-700">
-            {savingsData.map((item) => (
-              <MemberSavingCard key={item.memberId} item={item} onChange={handleAmountChange} />
+      {/* Month / Year selector — restricted to cycle range */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+          <select
+            value={month || ""}
+            onChange={(e) => {
+              const val = e.target.value.split("-");
+              setMonth(Number(val[0]));
+              setYear(Number(val[1]));
+            }}
+            className="w-full sm:w-56 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          >
+            {allowedMonths.map((m) => (
+              <option key={`${m.month}-${m.year}`} value={`${m.month}-${m.year}`}>
+                {MONTHS[m.month - 1]} {m.year}
+              </option>
             ))}
+          </select>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {/* Mobile View */}
+          <div className="block sm:hidden divide-y">
+            {groupMembers.map((m) => {
+              const amount = parseFloat(amounts[m.id]) || 0;
+              const cycleTotal = memberCycleTotals[m.id] || 0;
+              const remaining = MAX_SAVINGS - cycleTotal;
+              const exceedsRemaining = amount > remaining;
+
+              return (
+                <div key={m.id} className="p-4">
+                  <p className="font-medium text-gray-900 mb-1">{m.name}</p>
+                  <p className="text-xs text-gray-500 mb-1">{m.member_no}</p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Saved: K{cycleTotal.toLocaleString()} / K{MAX_SAVINGS.toLocaleString()} · Remaining: K{remaining.toLocaleString()}
+                  </p>
+                  {remaining <= 0 ? (
+                    <p className="text-xs text-amber-600 font-medium">Cycle limit reached</p>
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        value={amounts[m.id] || ""}
+                        onChange={(e) => handleAmountChange(m.id, e.target.value)}
+                        placeholder="0.00"
+                        className={`w-full px-3 py-2 border rounded-lg ${
+                          exceedsRemaining ? "border-red-500" : "border-gray-300"
+                        }`}
+                        min="0"
+                        max={remaining}
+                        step="0.01"
+                      />
+                      {exceedsRemaining && (
+                        <p className="text-xs text-red-600 mt-1">Max K{remaining.toLocaleString()} remaining this cycle</p>
+                      )}
+                      {amount > 0 && !exceedsRemaining && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Interest: K{(amount * 0.15).toFixed(2)}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Desktop table */}
+          {/* Desktop View */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-600">
+              <thead className="bg-gray-50 border-b">
                 <tr>
-                  {["#", "Member", "Current Balance (K)", "Amount (K)", "Interest (15%)", "Accumulated"].map(
-                    (col) => (
-                      <th
-                        key={col}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                      >
-                        {col}
-                      </th>
-                    )
-                  )}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Member</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saved / Limit</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount (K)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interest (15%)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y dark:divide-gray-700">
-                {savingsData.map((item, index) => (
-                  <MemberSavingRow
-                    key={item.memberId}
-                    item={item}
-                    index={index}
-                    onChange={handleAmountChange}
-                  />
-                ))}
-              </tbody>
+              <tbody className="divide-y">
+                {groupMembers.map((m, index) => {
+                  const amount = parseFloat(amounts[m.id]) || 0;
+                  const interest = amount * 0.15;
+                  const cycleTotal = memberCycleTotals[m.id] || 0;
+                  const remaining = MAX_SAVINGS - cycleTotal;
+                  const exceedsRemaining = amount > remaining;
 
-              {/* Totals footer */}
-              {totals.totalAmount > 0 && (
-                <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="px-6 py-3 text-sm font-bold text-gray-700 dark:text-gray-200 text-right"
-                    >
-                      Totals:
-                    </td>
-                    <td className="px-6 py-3 text-sm font-bold text-gray-900 dark:text-white">
-                      K {currencyFormatter.format(totals.totalAmount)}
-                    </td>
-                    <td className="px-6 py-3 text-sm font-bold text-green-600 dark:text-green-400">
-                      K {currencyFormatter.format(totals.totalInterest)}
-                    </td>
-                    <td className="px-6 py-3 text-sm font-bold text-blue-700 dark:text-blue-400">
-                      K {currencyFormatter.format(totals.totalAccumulated)}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
+                  return (
+                    <tr key={m.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-500">{index + 1}</td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-medium text-gray-900">{m.name}</p>
+                        <p className="text-xs text-gray-500">{m.member_no}</p>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={remaining <= 0 ? "text-amber-600 font-medium" : "text-gray-600"}>
+                          K{cycleTotal.toLocaleString()} / K{MAX_SAVINGS.toLocaleString()}
+                        </span>
+                        {remaining > 0 && (
+                          <p className="text-xs text-gray-400">K{remaining.toLocaleString()} left</p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {remaining <= 0 ? (
+                          <span className="text-xs text-amber-600 font-medium">Limit reached</span>
+                        ) : (
+                          <>
+                            <input
+                              type="number"
+                              value={amounts[m.id] || ""}
+                              onChange={(e) => handleAmountChange(m.id, e.target.value)}
+                              placeholder="0.00"
+                              className={`w-32 px-3 py-2 border rounded-lg ${
+                                exceedsRemaining ? "border-red-500" : "border-gray-300"
+                              }`}
+                              min="0"
+                              max={remaining}
+                              step="0.01"
+                            />
+                            {exceedsRemaining && (
+                              <p className="text-xs text-red-600 mt-1">Max K{remaining.toLocaleString()}</p>
+                            )}
+                          </>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-green-600">
+                        K {interest.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
           </div>
-        </motion.div>
 
-        {/* ── Action bar ────────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.28 }}
-          className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-4"
-        >
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {totals.filledCount} of {members.length} members entered
-          </p>
-          <div className="flex gap-3 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors text-sm flex-1 sm:flex-none"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Reset
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || hasErrors || isLoadingMembers || members.length === 0}
-              className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm flex-1 sm:flex-none"
-            >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Savings
-                </>
-              )}
-            </button>
-          </div>
-        </motion.div>
+          {groupMembers.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              No members found{selectedGroup ? ` in ${selectedGroup.name}` : ""}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 mt-4">
+          <button
+            type="button"
+            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            onClick={handleCancel}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            <span>{submitting ? "Saving…" : "Save Savings"}</span>
+          </button>
+        </div>
       </form>
     </div>
   );

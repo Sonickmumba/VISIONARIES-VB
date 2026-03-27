@@ -10,6 +10,7 @@ import Members from './pages/Members'
 import { MemberDetail } from './pages/MemberDetails'
 import { HelpPage } from './pages/HelperPage'
 import { RecordSavings } from './pages/RecordSaving'
+import { Groups } from './pages/Groups'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 
@@ -35,6 +36,7 @@ function App() {
               <Route path="members/:memberId" element={<MemberDetail />} />
               <Route path="help" element={<HelpPage />} />
               <Route path="record-savings" element={<RecordSavings />} />
+              <Route path="groups" element={<Groups />} />
             </Route>
           </Route>
         </Routes>

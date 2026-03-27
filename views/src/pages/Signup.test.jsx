@@ -70,6 +70,8 @@ describe("Signup page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    // Mock public groups endpoint used by Signup's useEffect
+    axios.get.mockResolvedValue({ data: { success: true, data: [{ id: 'grp-1', name: 'Alpha Group' }] } });
   });
 
   it("renders the signup form", () => {
@@ -134,6 +136,7 @@ describe("Signup page", () => {
         phone: "0977123456",
         nationalId: "123456/78/1",
         password: "Demo@12345",
+        groupId: undefined,
       });
     });
 

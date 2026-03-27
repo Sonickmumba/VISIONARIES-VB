@@ -5,6 +5,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { beforeAll, describe, expect, it } from 'vitest';
 import authReducer from '../store/slices/authSlice';
+import groupReducer from '../store/slices/groupSlice';
 import Layout from './Layout';
 
 beforeAll(() => {
@@ -16,10 +17,11 @@ beforeAll(() => {
   };
 });
 
-const makeStore = () =>
+const makeStore = (overrides = {}) =>
   configureStore({
     reducer: {
       auth: authReducer,
+      groups: groupReducer,
     },
     preloadedState: {
       auth: {
@@ -28,6 +30,13 @@ const makeStore = () =>
         initializing: false,
         error: null,
       },
+      groups: {
+        groups: [],
+        selectedGroup: null,
+        loading: false,
+        error: null,
+      },
+      ...overrides,
     },
     middleware: (gDM) => gDM({ serializableCheck: false }),
   });

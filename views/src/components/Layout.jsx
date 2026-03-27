@@ -15,10 +15,14 @@ import {
   X,
   Moon,
   Sun,
+  ChevronDown,
+  Building2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useDispatch, useSelector } from "react-redux";
 import { logout as logoutThunk } from "../store/slices/authSlice";
+import { fetchGroups, selectGroup } from "../store/slices/groupSlice";
+import { fetchCyclesByGroup } from "../store/slices/cycleSlice";
 
 const NAV_ITEMS = [
     { path: "/dashboard", label: "Dashboard", icon: Home },
@@ -27,6 +31,7 @@ const NAV_ITEMS = [
   { path: "/dashboard/disburse-loan", label: "Disburse Loan", icon: DollarSign },
   { path: "/dashboard/record-repayment", label: "Repayments", icon: HandCoins },
   { path: "/dashboard/shareout", label: "Shareout", icon: FileText },
+  { path: "/dashboard/groups", label: "Groups", icon: Building2, adminOnly: true },
     { path: "/dashboard/help", label: "Help", icon: HelpCircle },
   ];
 
@@ -57,6 +62,18 @@ export function Layout() {
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
 
   const user = useSelector((state) => state.auth.user);
+  const { groups, selectedGroup } = useSelector((state) => state.groups);
+
+  useEffect(() => {
+    dispatch(fetchGroups());
+  }, [dispatch]);
+
+  // When the selected group changes, load its cycles
+  useEffect(() => {
+    if (selectedGroup?.id) {
+      dispatch(fetchCyclesByGroup(selectedGroup.id));
+    }
+  }, [dispatch, selectedGroup?.id]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -70,6 +87,17 @@ export function Layout() {
 
   const userName = useMemo(() => user?.name || "Member", [user]);
   const userRole = useMemo(() => (user?.role || "member").replace("_", " "), [user]);
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
+    [isAdmin]
+  );
+
+  const handleGroupChange = (e) => {
+    const group = groups.find((g) => g.id === e.target.value);
+    if (group) dispatch(selectGroup(group));
+  };
 
   const isActive = (path) => {
     if (path === "/dashboard") return location.pathname === "/dashboard";
@@ -117,6 +145,22 @@ export function Layout() {
                   <Moon className="w-5 h-5 text-gray-600" />
                 )}
               </button>
+
+              {groups.length > 1 && (
+                <div className="relative flex items-center gap-1.5 px-2 py-1.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                  <Building2 className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <select
+                    value={selectedGroup?.id || ""}
+                    onChange={handleGroupChange}
+                    className="text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent border-none outline-none cursor-pointer pr-5 appearance-none"
+                  >
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 absolute right-2 pointer-events-none" />
+                </div>
+              )}
 
               <div className="flex items-center gap-2 px-3 py-1.5 bg-linear-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-lg border border-blue-200 dark:border-gray-600">
                 <div className="p-1.5 bg-linear-to-br from-blue-500 to-purple-500 rounded-full">
@@ -170,7 +214,7 @@ export function Layout() {
         <div className="hidden md:block border-t border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav className="flex gap-1 overflow-x-auto">
-              {NAV_ITEMS.map((item) => (
+              {visibleNavItems.map((item) => (
                 <NavItem key={item.path} item={item} active={isActive(item.path)} />
               ))}
             </nav>
@@ -197,7 +241,21 @@ export function Layout() {
                 </div>
 
                 <nav className="space-y-1">
-                  {NAV_ITEMS.map((item) => {
+                  {groups.length > 1 && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 mb-1 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                      <Building2 className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <select
+                        value={selectedGroup?.id || ""}
+                        onChange={handleGroupChange}
+                        className="text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent border-none outline-none w-full cursor-pointer"
+                      >
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {visibleNavItems.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.path);
                     return (

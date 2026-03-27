@@ -11,6 +11,7 @@ jest.mock('../middleware/auth', () => ({
 
 jest.mock('../controllers/savingsController', () => ({
   createSavings: jest.fn((req, res) => res.status(201).json({ success: true, route: 'createSavings' })),
+  createBulkSavings: jest.fn((req, res) => res.status(201).json({ success: true, route: 'createBulkSavings' })),
   getSavingsByCycle: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getSavingsByCycle' })),
   getSavingsByUser: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getSavingsByUser' })),
   getSavingsById: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getSavingsById' })),
@@ -115,5 +116,34 @@ describe('savingsRoutes integration tests', () => {
     expect(response.status).toBe(200);
     expect(response.body.route).toBe('deleteSavings');
     expect(savingsController.deleteSavings).toHaveBeenCalled();
+  });
+
+  test('POST /api/savings/bulk rejects invalid payload', async () => {
+    const response = await request(app).post('/api/savings/bulk').send({
+      cycleId: 'bad-id',
+      month: 13,
+      year: 2010,
+      entries: [],
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Validation failed');
+    expect(savingsController.createBulkSavings).not.toHaveBeenCalled();
+  });
+
+  test('POST /api/savings/bulk calls createBulkSavings on valid payload', async () => {
+    const response = await request(app).post('/api/savings/bulk').send({
+      cycleId: '550e8400-e29b-41d4-a716-446655440000',
+      month: 3,
+      year: 2026,
+      entries: [
+        { userId: '550e8400-e29b-41d4-a716-446655440001', amount: 5000 },
+        { userId: '550e8400-e29b-41d4-a716-446655440002', amount: 10000 },
+      ],
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.route).toBe('createBulkSavings');
+    expect(savingsController.createBulkSavings).toHaveBeenCalled();
   });
 });

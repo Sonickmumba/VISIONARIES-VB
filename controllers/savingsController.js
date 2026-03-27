@@ -2,7 +2,7 @@ const db = require('../config/database');
 const { logAudit } = require('../utils/audit.util');
 const { createNotification } = require('../utils/notification.util');
 const { calculateSavingsInterest } = require('../utils/interest.util');
-const { NOTIFICATION_TYPES, TRANSACTION_TYPES } = require('../config/constants');
+const { NOTIFICATION_TYPES, TRANSACTION_TYPES, MAX_SAVINGS_PER_CYCLE } = require('../config/constants');
 
 const toNumber = (value) => {
   const numericValue = Number(value);
@@ -30,7 +30,7 @@ exports.createSavings = async (req, res) => {
 
     // Verify cycle exists and is active
     const cycleResult = await client.query(
-      'SELECT id, status FROM cycles WHERE id = $1',
+      'SELECT id, status, start_date, end_date FROM cycles WHERE id = $1',
       [cycleId]
     );
 
@@ -42,11 +42,26 @@ exports.createSavings = async (req, res) => {
       });
     }
 
-    if (cycleResult.rows[0].status !== 'active') {
+    const cycle = cycleResult.rows[0];
+
+    if (cycle.status !== 'active') {
       await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
         message: 'Cycle is not active',
+      });
+    }
+
+    // Validate month/year falls within the cycle's date range
+    const savingsDate = new Date(year, month - 1, 1);
+    const cycleStart = new Date(cycle.start_date);
+    const cycleEnd = new Date(cycle.end_date);
+    if (savingsDate < new Date(cycleStart.getFullYear(), cycleStart.getMonth(), 1) ||
+        savingsDate > new Date(cycleEnd.getFullYear(), cycleEnd.getMonth(), 1)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: `Month ${month}/${year} is outside the cycle period`,
       });
     }
 
@@ -61,6 +76,21 @@ exports.createSavings = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Savings already recorded for this month',
+      });
+    }
+
+    // Enforce per-cycle savings cap
+    const totalResult = await client.query(
+      'SELECT COALESCE(SUM(amount), 0) AS total FROM savings WHERE cycle_id = $1 AND user_id = $2',
+      [cycleId, userId]
+    );
+    const currentTotal = parseFloat(totalResult.rows[0].total);
+    if (currentTotal + savingsAmount > MAX_SAVINGS_PER_CYCLE) {
+      const remaining = MAX_SAVINGS_PER_CYCLE - currentTotal;
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: `Savings would exceed the K${MAX_SAVINGS_PER_CYCLE.toLocaleString()} per-cycle limit. Remaining allowance: K${remaining.toLocaleString()}`,
       });
     }
 
@@ -135,13 +165,13 @@ exports.getSavingsByCycle = async (req, res) => {
 
     const result = await db.query(
       `SELECT s.*, 
-              u.first_name, u.last_name, u.email,
-              v.first_name as verified_by_first_name, v.last_name as verified_by_last_name
+              u.name as user_name, u.email,
+              v.name as verified_by_name
        FROM savings s
        INNER JOIN users u ON s.user_id = u.id
        LEFT JOIN users v ON s.verified_by = v.id
        WHERE s.cycle_id = $1
-       ORDER BY s.year DESC, s.month DESC, u.last_name, u.first_name`,
+       ORDER BY s.year DESC, s.month DESC, u.name`,
       [cycleId]
     );
 
@@ -179,7 +209,7 @@ exports.getSavingsByUser = async (req, res) => {
     const result = await db.query(
       `SELECT s.*, 
               c.name as cycle_name, c.start_date, c.end_date,
-              v.first_name as verified_by_first_name, v.last_name as verified_by_last_name
+              v.name as verified_by_name
        FROM savings s
        INNER JOIN cycles c ON s.cycle_id = c.id
        LEFT JOIN users v ON s.verified_by = v.id
@@ -210,9 +240,9 @@ exports.getSavingsById = async (req, res) => {
 
     const result = await db.query(
       `SELECT s.*, 
-              u.first_name, u.last_name, u.email, u.phone,
+              u.name as user_name, u.email, u.phone,
               c.name as cycle_name,
-              v.first_name as verified_by_first_name, v.last_name as verified_by_last_name
+              v.name as verified_by_name
        FROM savings s
        INNER JOIN users u ON s.user_id = u.id
        INNER JOIN cycles c ON s.cycle_id = c.id
@@ -503,6 +533,181 @@ exports.deleteSavings = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting savings',
+    });
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Create savings records for multiple members in a single transaction
+ */
+exports.createBulkSavings = async (req, res) => {
+  const client = await db.pool.connect();
+
+  try {
+    const { cycleId, month, year, entries } = req.body;
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one savings entry is required',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Verify cycle exists and is active
+    const cycleResult = await client.query(
+      'SELECT id, group_id, status, start_date, end_date FROM cycles WHERE id = $1',
+      [cycleId]
+    );
+
+    if (cycleResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Cycle not found' });
+    }
+
+    const cycle = cycleResult.rows[0];
+
+    if (cycle.status !== 'active') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'Cycle is not active' });
+    }
+
+    const groupId = cycle.group_id;
+
+    // Validate month/year falls within the cycle's date range
+    const savingsDate = new Date(year, month - 1, 1);
+    const cycleStart = new Date(cycle.start_date);
+    const cycleEnd = new Date(cycle.end_date);
+    if (savingsDate < new Date(cycleStart.getFullYear(), cycleStart.getMonth(), 1) ||
+        savingsDate > new Date(cycleEnd.getFullYear(), cycleEnd.getMonth(), 1)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: `Month ${month}/${year} is outside the cycle period`,
+      });
+    }
+
+    // Check for any existing savings in this period for these users
+    const userIds = entries.map((e) => e.userId);
+    const existingResult = await client.query(
+      `SELECT user_id FROM savings
+       WHERE cycle_id = $1 AND month = $2 AND year = $3 AND user_id = ANY($4::uuid[])`,
+      [cycleId, month, year, userIds]
+    );
+
+    if (existingResult.rows.length > 0) {
+      const dupes = existingResult.rows.map((r) => r.user_id);
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: 'Some members already have savings recorded for this month',
+        duplicateUserIds: dupes,
+      });
+    }
+
+    // Enforce per-cycle savings cap for each member
+    const totalsResult = await client.query(
+      `SELECT user_id, COALESCE(SUM(amount), 0) AS total
+       FROM savings WHERE cycle_id = $1 AND user_id = ANY($2::uuid[])
+       GROUP BY user_id`,
+      [cycleId, userIds]
+    );
+    const totalMap = new Map(totalsResult.rows.map((r) => [r.user_id, parseFloat(r.total)]));
+    const overLimitUsers = [];
+    for (const entry of entries) {
+      const current = totalMap.get(entry.userId) || 0;
+      if (current + toNumber(entry.amount) > MAX_SAVINGS_PER_CYCLE) {
+        overLimitUsers.push({ userId: entry.userId, current, attempted: toNumber(entry.amount), remaining: MAX_SAVINGS_PER_CYCLE - current });
+      }
+    }
+    if (overLimitUsers.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: `Some members would exceed the K${MAX_SAVINGS_PER_CYCLE.toLocaleString()} per-cycle limit`,
+        overLimitUsers,
+      });
+    }
+
+    // Batch insert via unnest for performance
+    const amounts = [];
+    const uids = [];
+    const notes = [];
+    for (const entry of entries) {
+      const amt = toNumber(entry.amount);
+      if (amt <= 0) continue;
+      amounts.push(amt);
+      uids.push(entry.userId);
+      notes.push(entry.notes || null);
+    }
+
+    if (amounts.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: 'No valid savings amounts provided',
+      });
+    }
+
+    const insertResult = await client.query(
+      `INSERT INTO savings (cycle_id, user_id, amount, month, year, notes, payment_date)
+       SELECT $1, uid, amt, $2, $3, n, CURRENT_TIMESTAMP
+       FROM unnest($4::uuid[], $5::numeric[], $6::text[]) AS t(uid, amt, n)
+       RETURNING *`,
+      [cycleId, month, year, uids, amounts, notes]
+    );
+
+    const created = insertResult.rows;
+
+    // Audit log for the batch
+    await logAudit(
+      client,
+      req.user.id,
+      'BULK_SAVINGS_CREATED',
+      'savings',
+      null,
+      null,
+      { count: created.length, cycleId, month, year },
+      req.ip,
+      req.headers['user-agent']
+    );
+
+    // Notify admins
+    const adminsResult = await client.query(
+      `SELECT u.id FROM users u
+       INNER JOIN group_members gm ON u.id = gm.user_id
+       WHERE gm.group_id = $1
+       AND u.role IN ('admin', 'super_admin')`,
+      [groupId]
+    );
+
+    for (const admin of adminsResult.rows) {
+      await createNotification(
+        client,
+        admin.id,
+        NOTIFICATION_TYPES.PAYMENT_DUE,
+        'Bulk Savings Submission',
+        `${created.length} savings entries submitted for ${month}/${year}`,
+        null
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      success: true,
+      message: `${created.length} savings recorded successfully`,
+      data: created,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Create bulk savings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error recording bulk savings',
     });
   } finally {
     client.release();
