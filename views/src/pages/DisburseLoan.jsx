@@ -63,7 +63,7 @@ export function DisburseLoan() {
           <div>
             <h4 className="font-semibold text-orange-900 text-sm sm:text-base">Loan Requirements</h4>
             <p className="text-xs sm:text-sm text-orange-800 mt-1">
-              • Interest rate: 10% on loan amount, minimum K3,000<br />
+              • Interest rate: 15% on loan amount, minimum K3,000<br />
               • Minimum loan requirement: K20,000 per member<br />
               • Members who borrow less than K20,000 must pay common interest<br />
               • Members can pay K3,000 upfront to be exempt from common interest
