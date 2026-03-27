@@ -23,6 +23,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { logout as logoutThunk } from "../store/slices/authSlice";
 import { fetchGroups, selectGroup } from "../store/slices/groupSlice";
 import { fetchCyclesByGroup } from "../store/slices/cycleSlice";
+import { fetchMembers } from "../store/slices/memberSlice";
 
 const NAV_ITEMS = [
     { path: "/dashboard", label: "Dashboard", icon: Home },
@@ -63,6 +64,14 @@ export function Layout() {
 
   const user = useSelector((state) => state.auth.user);
   const { groups, selectedGroup } = useSelector((state) => state.groups);
+  const members = useSelector((state) => state.members.members);
+
+  // Fetch members globally at layout level
+  useEffect(() => {
+    if (!members || members.length === 0) {
+      dispatch(fetchMembers());
+    }
+  }, [dispatch, members]);
 
   useEffect(() => {
     dispatch(fetchGroups());
@@ -90,7 +99,10 @@ export function Layout() {
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
   const visibleNavItems = useMemo(
-    () => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
+    () => [
+      ...NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
+      ...(isAdmin ? [{ path: "/dashboard/cycles", label: "Manage Cycles", icon: Calendar }] : []),
+    ],
     [isAdmin]
   );
 

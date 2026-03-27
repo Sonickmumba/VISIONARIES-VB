@@ -26,9 +26,10 @@ const calculateTotalWithInterest = (principal, monthsElapsed) => {
  * Calculate loan interest
  * Minimum K3,000 or calculated percentage
  */
-const calculateLoanInterest = (loanAmount, interestRate = 0.10, duration = 1) => {
+const calculateLoanInterest = (loanAmount, interestRate = 0.15, duration = 1) => {
   const calculatedInterest = loanAmount * interestRate * duration;
-  return Math.max(calculatedInterest, MINIMUM_LOAN_INTEREST);
+  // return Math.max(calculatedInterest, MINIMUM_LOAN_INTEREST);
+  return Math.max(calculatedInterest, 0);
 };
 
 /**
