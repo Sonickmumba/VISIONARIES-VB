@@ -59,6 +59,7 @@ module.exports = {
   // Allowed cycle types: [startMonth, endMonth] (1-indexed)
   ALLOWED_CYCLE_TYPES: [
     { startMonth: 1, endMonth: 6, label: 'Jan – Jun (6 months)' },
+    { startMonth: 6, endMonth: 12, label: 'Jun – Dec (6 months)' },
     { startMonth: 1, endMonth: 12, label: 'Jan – Dec (12 months)' },
   ],
 };
