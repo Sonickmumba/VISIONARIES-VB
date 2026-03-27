@@ -13,6 +13,9 @@ const createGroupValidation = [
   body('leaderId').optional().isUUID().withMessage('Valid leader ID required'),
 ];
 
+// Public route (no auth) – used by signup page
+router.get('/public', groupController.getPublicGroups);
+
 // Routes
 router.post('/', authenticate, isAdmin, createGroupValidation, validate, groupController.createGroup);
 router.get('/', authenticate, groupController.getAllGroups);

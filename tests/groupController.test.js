@@ -153,4 +153,26 @@ describe('groupController unit tests', () => {
     });
     expect(client.release).toHaveBeenCalled();
   });
+
+  test('getPublicGroups returns list of id and name', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [
+        { id: 'grp-1', name: 'Alpha' },
+        { id: 'grp-2', name: 'Beta' },
+      ],
+    });
+
+    const req = {};
+    const res = createRes();
+
+    await groupController.getPublicGroups(req, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: [
+        { id: 'grp-1', name: 'Alpha' },
+        { id: 'grp-2', name: 'Beta' },
+      ],
+    });
+  });
 });

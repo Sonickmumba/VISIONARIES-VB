@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { signup as signupThunk, clearError } from "../store/slices/authSlice";
 import { motion } from "motion/react";
 import {
   PiggyBank,
@@ -14,14 +16,18 @@ import {
   CheckCircle2,
   AlertCircle,
   Shield,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 
 export function Signup() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading: isSubmitting } = useSelector((s) => s.auth);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [availableGroups, setAvailableGroups] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -29,9 +35,17 @@ export function Signup() {
     nationalId: "",
     password: "",
     confirmPassword: "",
+    groupId: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Fetch available groups for the dropdown
+  useEffect(() => {
+    axios
+      .get("/api/groups/public")
+      .then((res) => setAvailableGroups(res.data?.data || []))
+      .catch(() => {});
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -87,26 +101,22 @@ export function Signup() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await axios.post("/api/auth/signup", {
+    const result = await dispatch(
+      signupThunk({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         nationalId: formData.nationalId,
         password: formData.password,
-      });
+        groupId: formData.groupId || undefined,
+      })
+    );
 
+    if (signupThunk.fulfilled.match(result)) {
       toast.success("Account created successfully! Please login.");
       navigate("/login");
-    } catch (error) {
-      const message =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        "Failed to create account. Please try again.";
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      toast.error(result.payload || "Failed to create account. Please try again.");
     }
   };
 
@@ -277,6 +287,31 @@ export function Signup() {
                 </div>
               )}
             </div>
+
+            {/* Group Selection */}
+            {availableGroups.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Group (Optional)
+                </label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <select
+                    name="groupId"
+                    value={formData.groupId}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white appearance-none"
+                  >
+                    <option value=""> Choose existing group </option>
+                    {availableGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* Password */}
             <div>

@@ -50,6 +50,15 @@ module.exports = {
   SAVINGS_INTEREST_RATE: parseFloat(process.env.SAVINGS_INTEREST_RATE) || 0.15,
   MINIMUM_LOAN_INTEREST: parseFloat(process.env.MINIMUM_LOAN_INTEREST) || 3000,
 
+  // Savings limits
+  MAX_SAVINGS_PER_CYCLE: 30000,
+
   // Cycle Duration (months)
   CYCLE_DURATION: 6,
+
+  // Allowed cycle types: [startMonth, endMonth] (1-indexed)
+  ALLOWED_CYCLE_TYPES: [
+    { startMonth: 1, endMonth: 6, label: 'Jan – Jun (6 months)' },
+    { startMonth: 1, endMonth: 12, label: 'Jan – Dec (12 months)' },
+  ],
 };

@@ -1,9 +1,11 @@
-import { memo, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
   TrendingUp,
+  TrendingDown,
   Users,
   DollarSign,
+  Wallet,
   FileText,
   PiggyBank,
   HandCoins,
@@ -11,324 +13,373 @@ import {
   CheckCircle2,
   Bell,
   Calendar,
+  HelpCircle,
   ArrowRight,
   Sparkles,
-  BarChart3,
-  RefreshCw,
+  BarChart3, // Renamed to avoid conflict with recharts BarChart
 } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, BarChart, Bar } from "recharts";
+import { StatCard, AnimatedCard, GlassCard } from "../components/AnimatedCard";
 import { motion } from "motion/react";
-import { useDashboardStore } from "../store/dashboardStore";
 
-const currencyFormatter = new Intl.NumberFormat("en-ZM");
+// Version: 3.0 - Redux Integration
+export function Dashboard() {
+  const currentCycle = useSelector((state) => state.cycles.currentCycle);
+  const members = useSelector((state) => state.members.members);
+  const notifications = useSelector((state) => state.notifications.notifications);
+  const selectedGroup = useSelector((state) => state.groups.selectedGroup);
 
-const QUICK_ACTIONS = [
-  { label: "Record Savings", icon: PiggyBank, path: "/dashboard/record-savings", color: "from-green-500 to-green-600" },
-  { label: "Manage Loans", icon: HandCoins, path: "/dashboard/disburse-loan", color: "from-blue-500 to-blue-600" },
-  { label: "View Groups", icon: Users, path: "/dashboard/members", color: "from-purple-500 to-purple-600" },
-  { label: "Cycle Reports", icon: FileText, path: "/dashboard/shareout", color: "from-orange-500 to-orange-600" },
-];
-
-const ACTIVITY_COLORS = {
-  green: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
-  blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-  purple: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
-};
-
-const SectionCard = memo(function SectionCard({ title, icon: Icon, children, action }) {
-  return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4 gap-3">
-        <div className="flex items-center gap-3">
-          {Icon ? <Icon className="w-5 h-5 text-gray-400" /> : null}
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h3>
-        </div>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-});
-
-const StatCard = memo(function StatCard({ icon: Icon, label, value, trend, tone }) {
-  const toneClasses = {
-    green: "from-green-500 to-green-600",
-    blue: "from-blue-500 to-blue-600",
-    purple: "from-purple-500 to-purple-600",
-    orange: "from-orange-500 to-orange-600",
+  // Calculate metrics from Redux state
+  const metrics = {
+    totalSavings: currentCycle?.totalSavings || 0,
+    totalLoans: currentCycle?.totalLoans || 0,
+    availableFunds: currentCycle?.availableFunds || 0,
+    activeMembers: members?.length || 0,
   };
 
-  return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-          {typeof trend === "number" ? (
-            <p className="mt-1 text-xs text-green-600 dark:text-green-400">+{trend}% benchmark</p>
-          ) : null}
-        </div>
-        <div className={`p-3 rounded-lg bg-linear-to-br ${toneClasses[tone] || toneClasses.blue} text-white`}>
-          <Icon className="w-5 h-5" />
-        </div>
-      </div>
-    </div>
-  );
-});
+  const cycle = currentCycle || {
+    name: "Current Cycle",
+    startDate: new Date().toISOString(),
+    endDate: new Date().toISOString(),
+    status: "Active"
+  };
 
-const ActivityItem = memo(function ActivityItem({ color, text, time }) {
-  return (
-    <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg">
-      <div className={`p-2 rounded-lg ${ACTIVITY_COLORS[color] || ACTIVITY_COLORS.blue}`}>
-        <Bell className="w-4 h-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm text-gray-900 dark:text-white font-medium">{text}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{time}</p>
-      </div>
-    </div>
-  );
-});
+  const notificationsList = notifications || [];
 
-const MiniComparisonChart = memo(function MiniComparisonChart({ data }) {
-  const maxValue = useMemo(
-    () => Math.max(...data.flatMap((item) => [item.amount, item.loans]), 1),
-    [data]
-  );
+  const savingsData = [
+    { month: "Jan", amount: 695000, loans: 550000 },
+    { month: "Feb", amount: 739675, loans: 590000 },
+    { month: "Mar", amount: 785000, loans: 620000 },
+  ];
 
-  if (!data.length) {
-    return <p className="text-sm text-gray-500 dark:text-gray-400">No historical cycle data yet.</p>;
-  }
+  const recentActivities = [
+    { icon: CheckCircle2, color: "green", text: "Grace Phiri repayment verified", time: "2 hours ago" },
+    { icon: PiggyBank, color: "blue", text: "Mary Banda savings recorded (K30,000)", time: "5 hours ago" },
+    { icon: HandCoins, color: "purple", text: "David Zulu loan disbursed (K25,000)", time: "1 day ago" },
+  ];
 
-  return (
-    <div className="space-y-3">
-      {data.map((item, index) => (
-        <div key={item.id || `${item.month}-${index}`}>
-          <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-            <span>{item.month}</span>
-            <span>S: K {currencyFormatter.format(item.amount)} | L: K {currencyFormatter.format(item.loans)}</span>
-          </div>
-          <div className="space-y-1">
-            <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-              <div className="h-full bg-linear-to-r from-green-500 to-green-600" style={{ width: `${(item.amount / maxValue) * 100}%` }} />
-            </div>
-            <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-              <div className="h-full bg-linear-to-r from-blue-500 to-blue-600" style={{ width: `${(item.loans / maxValue) * 100}%` }} />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-});
-
-const DashboardSkeleton = memo(function DashboardSkeleton() {
-  return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-16 rounded-xl bg-gray-200 dark:bg-gray-700" />
-      <div className="h-36 rounded-xl bg-gray-200 dark:bg-gray-700" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-32 rounded-xl bg-gray-200 dark:bg-gray-700" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="h-72 rounded-xl bg-gray-200 dark:bg-gray-700" />
-        <div className="h-72 rounded-xl bg-gray-200 dark:bg-gray-700" />
-      </div>
-    </div>
-  );
-});
-
-export function Dashboard() {
-  const metrics = useDashboardStore((state) => state.metrics);
-  const currentCycle = useDashboardStore((state) => state.currentCycle);
-  const chartData = useDashboardStore((state) => state.chartData);
-  const recentActivities = useDashboardStore((state) => state.recentActivities);
-  const pendingActions = useDashboardStore((state) => state.pendingActions);
-  const groups = useDashboardStore((state) => state.groups);
-  const loading = useDashboardStore((state) => state.loading);
-  const error = useDashboardStore((state) => state.error);
-  const fetchDashboard = useDashboardStore((state) => state.fetchDashboard);
-
-  useEffect(() => {
-    fetchDashboard().catch(() => {});
-  }, [fetchDashboard]);
-
-  if (loading && !currentCycle && groups.length === 0) {
-    return <DashboardSkeleton />;
-  }
+  const pendingActions = notificationsList.filter(n => !n.read).slice(0, 3);
 
   return (
     <div className="space-y-6">
+      {/* Page Header with Animation */}
       <motion.div
-        initial={{ opacity: 0, y: -12 }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-        className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3"
+        className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2"
       >
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
             Dashboard
           </h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-            Real-time village banking summary
+            Welcome to Village Banking Management
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Link
-            to="/dashboard/members"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
+            to="help"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
           >
-            <Users className="w-4 h-4" />
-            <span className="text-sm font-medium">Manage Groups</span>
+            <HelpCircle className="w-4 h-4" />
+            <span className="text-sm font-medium">How It Works</span>
           </Link>
-          <button
-            type="button"
-            onClick={() => fetchDashboard(true).catch(() => {})}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+        </motion.div>
       </motion.div>
 
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4">
-          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-        </div>
-      ) : null}
-
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-linear-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-700 p-6">
-        <div className="flex items-start gap-3">
-          <div className="text-3xl">👋</div>
-          <div>
+      {/* Welcome Banner */}
+      <GlassCard gradient className="p-6">
+        <div className="flex items-start gap-4">
+          <motion.div
+            animate={{ rotate: [0, 10, -10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="text-4xl"
+          >
+            👋
+          </motion.div>
+          <div className="flex-1">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-              Welcome to VISIONARIES VB
+              Welcome to VISIONARIES VB Demo!
               <Sparkles className="w-5 h-5 text-yellow-500" />
             </h3>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-              Monitor groups, cycle progress, savings performance, and loan exposure from one place.
+              This is a fully functional prototype with mocked data showing how the Village Banking system works. All features are working with sample data. Backend integration can be added later.
             </p>
             <div className="flex flex-wrap gap-2">
-              {[
-                `${groups.length} Active Groups`,
-                `${metrics.activeMembers} Members`,
-                currentCycle?.name || 'No Active Cycle',
-              ].map((feature) => (
-                <span
+              {["Member Management", "Savings Tracking", "Loan Processing", "Shareout Reports"].map((feature, i) => (
+                <motion.span
                   key={feature}
-                  className="px-3 py-1.5 bg-white/70 dark:bg-gray-800/70 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="px-3 py-1.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300"
                 >
-                  {feature}
-                </span>
+                  ✓ {feature}
+                </motion.span>
               ))}
             </div>
           </div>
         </div>
-      </div>
+      </GlassCard>
 
-      <div className="relative overflow-hidden bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl shadow-xl p-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -ml-32 -mb-32" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Calendar className="w-5 h-5" />
-              <h2 className="text-xl sm:text-2xl font-bold">{currentCycle?.name || 'No Active Cycle'}</h2>
-            </div>
-            <p className="text-blue-100 text-sm">
-              {currentCycle?.startDate && currentCycle?.endDate
-                ? `${new Date(currentCycle.startDate).toLocaleDateString()} - ${new Date(currentCycle.endDate).toLocaleDateString()}`
-                : 'Create a cycle to see live stats'}
-            </p>
-          </div>
-          <div className="px-4 py-2 rounded-lg border border-white/30 bg-white/10">
-            <span className="font-semibold uppercase text-sm">Status: {currentCycle?.status || 'N/A'}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={PiggyBank} label="TOTAL SAVINGS" value={`K ${currencyFormatter.format(metrics.totalSavings)}`} trend={12} tone="green" />
-        <StatCard icon={HandCoins} label="TOTAL LOANS" value={`K ${currencyFormatter.format(metrics.totalLoans)}`} trend={8} tone="blue" />
-        <StatCard icon={DollarSign} label="AVAILABLE FUNDS" value={`K ${currencyFormatter.format(metrics.availableFunds)}`} trend={5} tone="purple" />
-        <StatCard icon={Users} label="ACTIVE MEMBERS" value={metrics.activeMembers} tone="orange" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SectionCard title="Savings Growth" icon={TrendingUp}>
-          <MiniComparisonChart data={chartData} />
-        </SectionCard>
-        <SectionCard title="Loans vs Savings" icon={BarChart3}>
-          <MiniComparisonChart data={chartData} />
-        </SectionCard>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SectionCard title="Recent Activity" icon={Bell}>
-          <div className="space-y-3">
-            {recentActivities.length ? (
-              recentActivities.map((activity) => (
-                <ActivityItem key={activity.id} color={activity.color} text={activity.text} time={activity.time} />
-              ))
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">No activity available yet.</p>
-            )}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Pending Actions" icon={AlertTriangle}>
-          <div className="space-y-3">
-            {pendingActions.length > 0 ? (
-              pendingActions.map((action) => (
-                <div
-                  key={action.id}
-                  className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800"
-                >
-                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white font-medium">{action.message}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(action.date).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-2" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">All caught up! No pending actions.</p>
+      {/* Cycle Info */}
+      <AnimatedCard delay={0.1}>
+        <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl shadow-xl p-6">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -ml-32 -mb-32" />
+          
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="w-5 h-5" />
+                <h2 className="text-xl sm:text-2xl font-bold">
+                  {cycle.name}
+                </h2>
               </div>
-            )}
+              <p className="text-blue-100 text-sm">
+                {new Date(cycle.startDate).toLocaleDateString()} -{" "}
+                {new Date(cycle.endDate).toLocaleDateString()}
+              </p>
+            </div>
+            <div className="glass px-4 py-2 rounded-lg backdrop-blur-md">
+              <span className="font-semibold uppercase text-sm">
+                Status: {cycle.status}
+              </span>
+            </div>
           </div>
-          {pendingActions.length > 0 ? (
-            <Link
-              to="/dashboard/disburse-loan"
-              className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-            >
-              Review pending loans
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          ) : null}
-        </SectionCard>
+        </div>
+      </AnimatedCard>
+
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={PiggyBank}
+          label="TOTAL SAVINGS"
+          value={`K ${metrics.totalSavings.toLocaleString()}`}
+          trend={12}
+          color="green"
+          delay={0.2}
+        />
+        <StatCard
+          icon={HandCoins}
+          label="TOTAL LOANS"
+          value={`K ${metrics.totalLoans.toLocaleString()}`}
+          trend={8}
+          color="blue"
+          delay={0.3}
+        />
+        <StatCard
+          icon={DollarSign}
+          label="AVAILABLE FUNDS"
+          value={`K ${metrics.availableFunds.toLocaleString()}`}
+          trend={5}
+          color="purple"
+          delay={0.4}
+        />
+        <StatCard
+          icon={Users}
+          label="ACTIVE MEMBERS"
+          value={metrics.activeMembers}
+          color="orange"
+          delay={0.5}
+        />
       </div>
 
-      <SectionCard title="Quick Actions">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {QUICK_ACTIONS.map((action) => {
-            const Icon = action.icon;
-            return (
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Savings Growth Chart */}
+        <AnimatedCard delay={0.6}>
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Savings Growth</h3>
+              <TrendingUp className="w-5 h-5 text-green-500" />
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={savingsData}>
+                <defs>
+                  <linearGradient id="dashboardColorSavingsAmount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  fill="url(#dashboardColorSavingsAmount)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </GlassCard>
+        </AnimatedCard>
+
+        {/* Loans vs Savings */}
+        <AnimatedCard delay={0.7}>
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Loans vs Savings</h3>
+              <BarChart3 className="w-5 h-5 text-blue-500" />
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={savingsData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <YAxis stroke="#6b7280" style={{ fontSize: "12px" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  }}
+                />
+                <Bar dataKey="amount" fill="#10b981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="loans" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </GlassCard>
+        </AnimatedCard>
+      </div>
+
+      {/* Activity and Pending Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Activity */}
+        <AnimatedCard delay={0.8}>
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Activity</h3>
+              <Bell className="w-5 h-5 text-gray-400" />
+            </div>
+            <div className="space-y-3">
+              {recentActivities.map((activity, i) => {
+                const Icon = activity.icon;
+                const colorClasses = {
+                  green: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                  purple: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+                };
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.9 + i * 0.1 }}
+                    className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg"
+                  >
+                    <div className={`p-2 rounded-lg ${colorClasses[activity.color]}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 dark:text-white font-medium">
+                        {activity.text}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {activity.time}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </GlassCard>
+        </AnimatedCard>
+
+        {/* Pending Actions */}
+        <AnimatedCard delay={0.9}>
+          <GlassCard className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Pending Actions</h3>
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
+            </div>
+            <div className="space-y-3">
+              {pendingActions.length > 0 ? (
+                pendingActions.map((action, i) => (
+                  <motion.div
+                    key={action.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 1 + i * 0.1 }}
+                    className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 dark:text-white font-medium">
+                        {action.message}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {new Date(action.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    All caught up! No pending actions.
+                  </p>
+                </div>
+              )}
+            </div>
+            {pendingActions.length > 0 && (
               <Link
-                key={action.label}
-                to={action.path}
-                className={`flex flex-col items-center justify-center gap-2 p-4 bg-linear-to-br ${action.color} text-white rounded-xl shadow-lg hover:shadow-xl transition-all`}
+                to="notifications"
+                className="flex items-center justify-center gap-2 mt-4 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
-                <Icon className="w-6 h-6" />
-                <span className="text-xs font-medium text-center">{action.label}</span>
+                View all notifications
+                <ArrowRight className="w-4 h-4" />
               </Link>
-            );
-          })}
-        </div>
-      </SectionCard>
+            )}
+          </GlassCard>
+        </AnimatedCard>
+      </div>
+
+      {/* Quick Actions */}
+      <AnimatedCard delay={1}>
+        <GlassCard className="p-6">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Record Savings", icon: PiggyBank, path: "record-savings", color: "from-green-500 to-green-600" },
+              { label: "Disburse Loan", icon: HandCoins, path: "disburse-loan", color: "from-blue-500 to-blue-600" },
+              { label: "View Members", icon: Users, path: "members", color: "from-purple-500 to-purple-600" },
+              { label: "Shareout Report", icon: FileText, path: "shareout", color: "from-orange-500 to-orange-600" },
+            ].map((action, i) => {
+              const Icon = action.icon;
+              return (
+                <motion.div
+                  key={action.label}
+                  whileHover={{ scale: 1.05, y: -4 }}
+                  whileTap={{ scale: 0.95 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.1 + i * 0.1 }}
+                >
+                  <Link
+                    to={action.path}
+                    className={`flex flex-col items-center justify-center gap-2 p-4 bg-gradient-to-br ${action.color} text-white rounded-xl shadow-lg hover:shadow-xl transition-all`}
+                  >
+                    <Icon className="w-6 h-6" />
+                    <span className="text-xs font-medium text-center">{action.label}</span>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
+        </GlassCard>
+      </AnimatedCard>
     </div>
   );
 }

@@ -9,6 +9,17 @@ const generateToken = (userId, role) =>
     expiresIn: process.env.JWT_EXPIRE || '7d',
   });
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+const setTokenCookie = (res, token) => {
+  res.cookie('vb-token', token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+};
+
 const toUserPayload = (user) => ({
   id: user.id,
   memberNo: user.member_no,
@@ -36,6 +47,7 @@ const register = (req, res, next) => {
     }
 
     const token = generateToken(user.id, user.role);
+    setTokenCookie(res, token);
 
     await logAudit(db.pool, null, 'USER_REGISTERED', 'users', user.id, null, user, req.ip, req.headers['user-agent']);
 
@@ -65,6 +77,7 @@ const login = (req, res, next) => {
     }
 
     const token = generateToken(user.id, user.role);
+    setTokenCookie(res, token);
 
     await logAudit(db.pool, user.id, 'USER_LOGIN', 'users', user.id, null, null, req.ip, req.headers['user-agent']);
 
@@ -123,6 +136,7 @@ const logout = async (req, res) => {
       );
     }
 
+    res.clearCookie('vb-token');
     return res.json({
       success: true,
       message: 'Logout successful',

@@ -85,12 +85,13 @@ describe('savingsController unit tests', () => {
     const client = {
       query: jest
         .fn()
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({ rows: [{ id: 'cycle-1', status: 'active' }] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [savings] })
-        .mockResolvedValueOnce({ rows: [{ id: 'admin-1' }, { id: 'admin-2' }] })
-        .mockResolvedValueOnce({}),
+        .mockResolvedValueOnce({})                                                                           // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'cycle-1', status: 'active', start_date: '2026-01-01', end_date: '2026-06-30' }] }) // cycle check
+        .mockResolvedValueOnce({ rows: [] })                                                                  // duplicate check
+        .mockResolvedValueOnce({ rows: [{ total: '0' }] })                                                    // per-cycle total
+        .mockResolvedValueOnce({ rows: [savings] })                                                           // INSERT
+        .mockResolvedValueOnce({ rows: [{ id: 'admin-1' }, { id: 'admin-2' }] })                              // admins
+        .mockResolvedValueOnce({}),                                                                           // COMMIT
       release: jest.fn(),
     };
 
@@ -122,6 +123,64 @@ describe('savingsController unit tests', () => {
       data: savings,
     });
     expect(client.release).toHaveBeenCalled();
+  });
+
+  test('createSavings returns 400 when per-cycle cap exceeded', async () => {
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})                                                                           // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'cycle-1', status: 'active', start_date: '2026-01-01', end_date: '2026-06-30' }] })
+        .mockResolvedValueOnce({ rows: [] })                                                                  // no duplicate
+        .mockResolvedValueOnce({ rows: [{ total: '25000' }] })                                                // existing total
+        .mockResolvedValueOnce({}),                                                                           // ROLLBACK
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      body: { cycleId: 'cycle-1', userId: 'user-1', amount: 6000, month: 3, year: 2026 },
+      user: { id: 'admin-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await savingsController.createSavings(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, message: expect.stringContaining('per-cycle limit') })
+    );
+  });
+
+  test('createSavings returns 400 when month is outside cycle range', async () => {
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})                                                                           // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'cycle-1', status: 'active', start_date: '2026-01-01', end_date: '2026-06-30' }] })
+        .mockResolvedValueOnce({}),                                                                           // ROLLBACK
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      body: { cycleId: 'cycle-1', userId: 'user-1', amount: 1000, month: 9, year: 2026 },
+      user: { id: 'admin-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await savingsController.createSavings(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, message: expect.stringContaining('outside the cycle period') })
+    );
   });
 
   test('getSavingsById returns 404 when record not found', async () => {
@@ -170,5 +229,161 @@ describe('savingsController unit tests', () => {
         },
       ],
     });
+  });
+
+  test('createBulkSavings returns 404 when cycle does not exist', async () => {
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})             // BEGIN
+        .mockResolvedValueOnce({ rows: [] })   // cycle check
+        .mockResolvedValueOnce({}),            // ROLLBACK
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      body: {
+        cycleId: 'cycle-missing',
+        month: 3,
+        year: 2026,
+        entries: [{ userId: 'user-1', amount: 5000 }],
+      },
+      user: { id: 'admin-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await savingsController.createBulkSavings(req, res);
+
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'Cycle not found',
+    });
+    expect(client.release).toHaveBeenCalled();
+  });
+
+  test('createBulkSavings returns 201 on success', async () => {
+    const created = [
+      { id: 'sav-1', cycle_id: 'cycle-1', user_id: 'user-1', amount: 5000, month: 3, year: 2026 },
+      { id: 'sav-2', cycle_id: 'cycle-1', user_id: 'user-2', amount: 10000, month: 3, year: 2026 },
+    ];
+
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})                                          // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'cycle-1', group_id: 'grp-1', status: 'active', start_date: '2026-01-01', end_date: '2026-06-30' }] }) // cycle check
+        .mockResolvedValueOnce({ rows: [] })                                 // duplicate check
+        .mockResolvedValueOnce({ rows: [] })                                 // per-cycle totals (no prior savings)
+        .mockResolvedValueOnce({ rows: created })                            // INSERT
+        .mockResolvedValueOnce({ rows: [{ id: 'admin-1' }] })               // admins query
+        .mockResolvedValueOnce({}),                                          // COMMIT
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      body: {
+        cycleId: 'cycle-1',
+        month: 3,
+        year: 2026,
+        entries: [
+          { userId: 'user-1', amount: 5000 },
+          { userId: 'user-2', amount: 10000 },
+        ],
+      },
+      user: { id: 'admin-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await savingsController.createBulkSavings(req, res);
+
+    expect(logAudit).toHaveBeenCalled();
+    expect(client.query).toHaveBeenCalledWith('COMMIT');
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      message: '2 savings recorded successfully',
+      data: created,
+    });
+    expect(client.release).toHaveBeenCalled();
+  });
+
+  test('createBulkSavings returns 400 when per-cycle cap exceeded', async () => {
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})                                          // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'cycle-1', group_id: 'grp-1', status: 'active', start_date: '2026-01-01', end_date: '2026-06-30' }] })
+        .mockResolvedValueOnce({ rows: [] })                                 // no duplicates
+        .mockResolvedValueOnce({ rows: [{ user_id: 'user-1', total: '28000' }] }) // user-1 already at 28000
+        .mockResolvedValueOnce({}),                                          // ROLLBACK
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      body: {
+        cycleId: 'cycle-1',
+        month: 4,
+        year: 2026,
+        entries: [
+          { userId: 'user-1', amount: 5000 },
+        ],
+      },
+      user: { id: 'admin-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await savingsController.createBulkSavings(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, message: expect.stringContaining('per-cycle limit'), overLimitUsers: expect.any(Array) })
+    );
+  });
+
+  test('createBulkSavings returns 400 when month is outside cycle range', async () => {
+    const client = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({})                                          // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'cycle-1', group_id: 'grp-1', status: 'active', start_date: '2026-01-01', end_date: '2026-06-30' }] })
+        .mockResolvedValueOnce({}),                                          // ROLLBACK
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(client);
+
+    const req = {
+      body: {
+        cycleId: 'cycle-1',
+        month: 9,
+        year: 2026,
+        entries: [{ userId: 'user-1', amount: 5000 }],
+      },
+      user: { id: 'admin-1' },
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    };
+    const res = createRes();
+
+    await savingsController.createBulkSavings(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, message: expect.stringContaining('outside the cycle period') })
+    );
   });
 });

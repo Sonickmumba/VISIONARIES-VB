@@ -21,7 +21,7 @@ const configurePassport = () => {
       async (req, email, password, done) => {
         try {
           const normalizedEmail = normalizeEmail(email);
-          const { name, nationalId, phone } = req.body;
+          const { name, nationalId, phone, groupId } = req.body;
 
           if (!normalizedEmail || !password || !name || !nationalId) {
             return done(null, false, {
@@ -44,7 +44,23 @@ const configurePassport = () => {
             [normalizedEmail, passwordHash, name, nationalId, phone || null, DEFAULT_ROLE]
           );
 
-          return done(null, result.rows[0]);
+          const newUser = result.rows[0];
+
+          // Auto-add to group if groupId provided
+          if (groupId) {
+            const groupExists = await db.query(
+              'SELECT id FROM groups WHERE id = $1 AND is_active = true',
+              [groupId]
+            );
+            if (groupExists.rows.length > 0) {
+              await db.query(
+                'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [groupId, newUser.id]
+              );
+            }
+          }
+
+          return done(null, newUser);
         } catch (error) {
           return done(error);
         }

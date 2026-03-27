@@ -10,6 +10,7 @@ jest.mock('../middleware/auth', () => ({
 }));
 
 jest.mock('../controllers/groupController', () => ({
+  getPublicGroups: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getPublicGroups' })),
   createGroup: jest.fn((req, res) => res.status(201).json({ success: true, route: 'createGroup' })),
   getAllGroups: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getAllGroups' })),
   getGroupById: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getGroupById' })),

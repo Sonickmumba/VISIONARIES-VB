@@ -12,6 +12,7 @@ jest.mock('../middleware/auth', () => ({
 
 jest.mock('../controllers/userController', () => ({
   getAllUsers: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getAllUsers' })),
+  getMemberDetails: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getMemberDetails' })),
   getUserById: jest.fn((req, res) => res.status(200).json({ success: true, route: 'getUserById' })),
   updateUser: jest.fn((req, res) => res.status(200).json({ success: true, route: 'updateUser' })),
   updateUserRole: jest.fn((req, res) => res.status(200).json({ success: true, route: 'updateUserRole' })),
@@ -46,6 +47,14 @@ describe('userRoutes integration tests', () => {
     expect(response.status).toBe(200);
     expect(response.body.route).toBe('getUserById');
     expect(userController.getUserById).toHaveBeenCalled();
+  });
+
+  test('GET /api/users/:id/details calls getMemberDetails', async () => {
+    const response = await request(app).get('/api/users/user-1/details');
+
+    expect(response.status).toBe(200);
+    expect(response.body.route).toBe('getMemberDetails');
+    expect(userController.getMemberDetails).toHaveBeenCalled();
   });
 
   test('PUT /api/users/:id rejects invalid email payload', async () => {

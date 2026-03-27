@@ -1,32 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuthStore } from "../store/authStore";
+import { useDispatch, useSelector } from "react-redux";
+import { login as loginThunk, clearError } from "../store/slices/authSlice";
 import { Smartphone, Mail, Lock, AlertCircle, Sparkles, ArrowRight, ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const login = useAuthStore((s) => s.login);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { loading, error, user } = useSelector((s) => s.auth);
+
+  useEffect(() => {
+    return () => { dispatch(clearError()); };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (user) navigate("/dashboard");
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      await login(email, password);
-      navigate("/dashboard");
-    } catch (err) {
-      setError(
-        err.response?.data?.message || "Invalid email or password"
-      );
-    } finally {
-      setLoading(false);
-    }
+    dispatch(loginThunk({ email, password }));
   };
 
   const demoAccounts = [
