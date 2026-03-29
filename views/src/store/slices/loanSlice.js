@@ -183,7 +183,14 @@ const loanSlice = createSlice({
       })
       .addCase(repayLoan.fulfilled, (state, { payload }) => {
         state.loading = false;
-        // Optionally update the loan's repayments in state if needed
+        const { loanId, repayment } = payload;
+        const loan = state.loans.find((l) => l.id === loanId);
+        if (loan) {
+          if (!Array.isArray(loan.repayments)) loan.repayments = [];
+          loan.repayments.push(repayment);
+          // Mark loans stale so Approvals re-fetches
+          state.stale = true;
+        }
       })
       .addCase(repayLoan.rejected, (state, { payload }) => {
         state.loading = false;
