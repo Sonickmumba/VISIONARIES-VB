@@ -77,7 +77,7 @@ export function Layout() {
 
   // Calculate pending approvals count
   const pendingSavingsCount = savings.filter((s) => s.status === "pending").length;
-  const pendingLoansCount = loans.filter((l) => l.status === "pending" || l.status === "requested").length;
+  const pendingLoansCount = loans.filter((l) => l.status === "pending" || l.status === "requested" || l.status === "approved").length;
   const pendingRepaymentsCount = loans.reduce((count, loan) => {
     return count + ((loan.repayments || []).filter((r) => r.status === "pending").length);
   }, 0);
