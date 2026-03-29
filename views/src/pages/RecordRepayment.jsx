@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { repayLoan, fetchLoans } from "../store/slices/loanSlice";
 import { CheckCircle, Upload, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
 
 export function RecordRepayment() {
   const { memberId } = useParams();
@@ -40,6 +41,7 @@ export function RecordRepayment() {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("mobile_money");
   const [referenceNo, setReferenceNo] = useState("");
+  const [proofFile, setProofFile] = useState(null);
 
   // Find active loans for selected member (any loan with remaining balance, excluding rejected/defaulted)
   const memberLoans = useMemo(
@@ -82,20 +84,33 @@ export function RecordRepayment() {
       toast.error(`Amount exceeds outstanding balance of K${maxAmount.toLocaleString()}`);
       return;
     }
+    if (!proofFile) {
+      toast.error("Please upload payment proof");
+      return;
+    }
     const noteParts = [];
     if (paymentMethod) noteParts.push(`Payment method: ${paymentMethod.replace("_", " ")}`);
     if (referenceNo) noteParts.push(`Ref: ${referenceNo}`);
 
     try {
+      // Upload the proof file first
+      const formData = new FormData();
+      formData.append('proof', proofFile);
+      const uploadResponse = await axios.post('/api/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const proofUrl = uploadResponse.data.url;
+
       await dispatch(repayLoan({
         loanId: selectedLoanId,
         amount: repayAmount,
-        proofUrl: "",
+        proofUrl,
         notes: noteParts.join(" | "),
       })).unwrap();
       toast.success("Repayment recorded! Awaiting verification.");
       setAmount("");
       setReferenceNo("");
+      setProofFile(null);
     } catch (err) {
       toast.error(err || "Failed to record repayment");
     }
@@ -264,20 +279,21 @@ export function RecordRepayment() {
               />
             </div>
 
-            {/* Upload proof placeholder */}
+            {/* Upload proof */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Upload Payment Proof (Optional)
+                Upload Payment Proof
               </label>
-              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  PNG, JPG, PDF up to 10MB
-                </p>
-              </div>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setProofFile(e.target.files[0])}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                required
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                PNG, JPG, PDF up to 10MB
+              </p>
             </div>
 
             {/* Actions */}

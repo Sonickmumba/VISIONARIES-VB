@@ -67,7 +67,21 @@ export function Approvals() {
   const pendingRepayments = loans.flatMap((loan) =>
     (loan.repayments || [])
       .filter((r) => r.status === "pending")
-      .map((r) => ({ ...r, loanId: loan.id, memberName: loan.memberName, memberId: loan.memberId }))
+      .map((r) => {
+        // Parse notes for payment method and reference
+        const notesParts = r.notes ? r.notes.split(' | ') : [];
+        const paymentMethod = notesParts.find(p => p.startsWith('Payment method:'))?.replace('Payment method: ', '') || '';
+        const referenceNo = notesParts.find(p => p.startsWith('Ref:'))?.replace('Ref: ', '') || '';
+        return {
+          ...r,
+          loanId: loan.id,
+          memberName: loan.memberName,
+          memberId: loan.memberId,
+          proofUrl: r.proof_url, // Map to camelCase
+          paymentMethod,
+          referenceNo
+        };
+      })
   );
 
   // Search filter
@@ -655,11 +669,23 @@ export function Approvals() {
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                         Payment Proof
                       </p>
-                      <img
-                        src={selectedItem.proofUrl}
-                        alt="Payment proof"
-                        className="w-full h-48 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
-                      />
+                      {selectedItem.proofUrl.toLowerCase().endsWith('.pdf') ? (
+                        <a
+                          href={selectedItem.proofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <FileText className="w-4 h-4" />
+                          View PDF Proof
+                        </a>
+                      ) : (
+                        <img
+                          src={selectedItem.proofUrl}
+                          alt="Payment proof"
+                          className="w-full h-48 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
+                        />
+                      )}
                     </div>
                   )}
                 </div>

@@ -130,39 +130,39 @@ To get a local copy up and running, follow these steps.
 
 In order to run this project you need:
 
-<!--
-Example command:
-
-```sh
- gem install rails
-```
- -->
+- Node.js (v16 or higher)
+- PostgreSQL
+- A Cloudinary account for file uploads (sign up at [cloudinary.com](https://cloudinary.com))
 
 ### Setup
 
-Clone this repository to your desired folder:
+1. Clone this repository:
+   ```sh
+   git clone https://github.com/Sonickmumba/VISIONARIES-VB.git
+   cd VISIONARIES-VB
+   ```
 
-<!--
-Example commands:
+2. Install dependencies:
+   ```sh
+   npm install
+   cd views && npm install
+   ```
 
-```sh
-  cd my-folder
-  git clone git@github.com:myaccount/my-project.git
-```
---->
+3. Set up environment variables:
+   - Copy `.env` and update the values
+   - For Cloudinary, create an account and get your cloud name, API key, and API secret
+   - Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` in `.env`
 
-### Install
+4. Set up the database:
+   ```sh
+   npm run db:init
+   npm run db:seed
+   ```
 
-Install this project with:
-
-<!--
-Example command:
-
-```sh
-  cd my-project
-  gem install
-```
---->
+5. Bootstrap super admin (optional):
+   ```sh
+   npm run bootstrap:superadmin
+   ```
 
 ### Usage
 
