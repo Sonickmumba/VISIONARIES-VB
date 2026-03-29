@@ -37,13 +37,13 @@ const NAV_ITEMS = [
   { path: "/dashboard/help", label: "Help", icon: HelpCircle },
 ];
 
-const NavItem = memo(function NavItem({ item, active, onClick }) {
+const NavItem = memo(function NavItem({ item, active, onClick, badge }) {
   const Icon = item.icon;
   return (
     <Link
       to={item.path}
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
+      className={`relative flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${
         active
           ? "border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
           : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600"
@@ -51,6 +51,11 @@ const NavItem = memo(function NavItem({ item, active, onClick }) {
     >
       <Icon className="w-4 h-4" />
       <span className="text-sm font-medium">{item.label}</span>
+      {badge > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 });
@@ -66,6 +71,17 @@ export function Layout() {
   const user = useSelector((state) => state.auth.user);
   const { groups, selectedGroup } = useSelector((state) => state.groups);
   const members = useSelector((state) => state.members.members);
+
+  const savings = useSelector((state) => state.savings?.savings || []);
+  const loans = useSelector((state) => state.loans?.loans || []);
+
+  // Calculate pending approvals count
+  const pendingSavingsCount = savings.filter((s) => s.status === "pending").length;
+  const pendingLoansCount = loans.filter((l) => l.status === "pending" || l.status === "requested").length;
+  const pendingRepaymentsCount = loans.reduce((count, loan) => {
+    return count + ((loan.repayments || []).filter((r) => r.status === "pending").length);
+  }, 0);
+  const totalPendingCount = pendingSavingsCount + pendingLoansCount + pendingRepaymentsCount;
 
   // Fetch members globally at layout level
   useEffect(() => {
@@ -228,7 +244,12 @@ export function Layout() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav className="flex gap-1 overflow-x-auto">
               {visibleNavItems.map((item) => (
-                <NavItem key={item.path} item={item} active={isActive(item.path)} />
+                <NavItem
+                  key={item.path}
+                  item={item}
+                  active={isActive(item.path)}
+                  badge={item.path === "/dashboard/approvals" ? totalPendingCount : 0}
+                />
               ))}
             </nav>
           </div>
@@ -276,7 +297,7 @@ export function Layout() {
                         key={item.path}
                         to={item.path}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors ${
+                        className={`relative flex items-center gap-3 px-3 py-3 rounded-lg transition-colors ${
                           active
                             ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                             : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -284,6 +305,11 @@ export function Layout() {
                       >
                         <Icon className="w-5 h-5" />
                         <span className="text-sm font-medium">{item.label}</span>
+                        {item.path === "/dashboard/approvals" && totalPendingCount > 0 && (
+                          <span className="ml-auto min-w-[20px] h-[20px] flex items-center justify-center px-1.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                            {totalPendingCount}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}
