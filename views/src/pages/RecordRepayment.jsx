@@ -1,56 +1,65 @@
 import { useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { addRepayment } from "../store/slices/loanSlice";
+import { repayLoan } from "../store/slices/loanSlice";
 import { CheckCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 export function RecordRepayment() {
   const { memberId } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const members = useSelector((state) => state.members.members);
   const loans = useSelector((state) => state.loans.loans);
+
+  console.log('DEBUG: Loans from state:', loans); // Debug log to check loans data
+
   const selectedGroup = useSelector((state) => state.groups.selectedGroup);
-  
+  const loading = useSelector((state) => state.loans.loading);
+
   // Filter members by selected group
-  const groupMembers = members.filter(m => m.groupId === selectedGroup?.id);
+  const groupMembers = members.filter(m => m.group_id === selectedGroup?.id);
   
   const [selectedMember, setSelectedMember] = useState(memberId || "");
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("mobile_money");
   const [referenceNo, setReferenceNo] = useState("");
+  const [proofUrl] = useState(""); // Placeholder for file upload integration
 
   // Find active loans for selected member
   const memberLoans = loans.filter(l => l.memberId === selectedMember && l.balance > 0);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    if (!selectedMember) {
+      toast.error("Please select a member");
+      return;
+    }
+    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+      toast.error("Enter a valid repayment amount");
+      return;
+    }
     if (memberLoans.length === 0) {
       toast.error("No active loans found for this member");
       return;
     }
+    try {
+      await dispatch(repayLoan({
+        loanId: memberLoans[0].id,
+        amount: parseFloat(amount),
+        proofUrl,
+        notes: referenceNo,
+      })).unwrap();
+      toast.success("Repayment recorded! Awaiting verification.");
+      setAmount("");
+      setReferenceNo("");
+    } catch (err) {
+      toast.error(err || "Failed to record repayment");
+    }
+  };
 
-    const repayment = {
-      id: Date.now().toString(),
-      amount: parseFloat(amount),
-      paymentDate: new Date().toISOString().split('T')[0],
-      status: 'pending',
-      verifiedBy: null,
-      verifiedAt: null,
-      paymentMethod,
-      referenceNo,
-    };
-
-    // Add to the first active loan (you can modify this logic)
-    dispatch(addRepayment({
-      loanId: memberLoans[0].id,
-      repayment,
-    }));
-
-    toast.success("Repayment recorded! Awaiting verification.");
-    setAmount("");
-    setReferenceNo("");
+  const handleCancel = () => {
+    navigate(-1);
   };
 
   return (
@@ -78,7 +87,7 @@ export function RecordRepayment() {
                 <option value="">Choose a member...</option>
                 {groupMembers.map((member) => (
                   <option key={member.id} value={member.id}>
-                    {member.name} - Outstanding: K{member.currentLoans.toLocaleString()}
+                    {member.name} - Outstanding: K{(member.outstanding_loan).toLocaleString()}
                   </option>
                 ))}
               </select>
@@ -149,15 +158,18 @@ export function RecordRepayment() {
               <button
                 type="button"
                 className="flex-1 px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={handleCancel}
+                disabled={loading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 className="flex-1 flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={loading}
               >
                 <CheckCircle className="w-4 h-4" />
-                <span>Record Repayment</span>
+                <span>{loading ? 'Recording...' : 'Record Repayment'}</span>
               </button>
             </div>
           </form>

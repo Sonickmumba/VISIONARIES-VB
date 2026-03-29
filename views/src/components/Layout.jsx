@@ -26,15 +26,16 @@ import { fetchCyclesByGroup } from "../store/slices/cycleSlice";
 import { fetchMembers } from "../store/slices/memberSlice";
 
 const NAV_ITEMS = [
-    { path: "/dashboard", label: "Dashboard", icon: Home },
+  { path: "/dashboard", label: "Dashboard", icon: Home },
   { path: "/dashboard/members", label: "Members", icon: Users },
   { path: "/dashboard/record-savings", label: "Record Savings", icon: PiggyBank },
   { path: "/dashboard/disburse-loan", label: "Disburse Loan", icon: DollarSign },
   { path: "/dashboard/record-repayment", label: "Repayments", icon: HandCoins },
   { path: "/dashboard/shareout", label: "Shareout", icon: FileText },
+  { path: "/dashboard/approvals", label: "Approvals", icon: FileText, adminOnly: true },
   { path: "/dashboard/groups", label: "Groups", icon: Building2, adminOnly: true },
-    { path: "/dashboard/help", label: "Help", icon: HelpCircle },
-  ];
+  { path: "/dashboard/help", label: "Help", icon: HelpCircle },
+];
 
 const NavItem = memo(function NavItem({ item, active, onClick }) {
   const Icon = item.icon;

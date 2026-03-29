@@ -63,9 +63,9 @@ export const createBulkSavings = createAsyncThunk(
 /** Verify (or reject) a savings record */
 export const verifySavingsRecord = createAsyncThunk(
   'savings/verify',
-  async ({ id, status, notes }, { rejectWithValue }) => {
+  async ({ id, status, verifiedBy, verifiedAt }, { rejectWithValue }) => {
     try {
-      const { data: res } = await axios.post(`/api/savings/${id}/verify`, { status, notes });
+      const { data: res } = await axios.post(`/api/savings/${id}/verify`, { status, verifiedBy, verifiedAt });
       return res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to verify savings');
@@ -95,6 +95,7 @@ const savingsSlice = createSlice({
     loading: false,
     submitting: false,
     error: null,
+    stale: true,
   },
   reducers: {
     setSavings: (state, action) => {
@@ -124,6 +125,9 @@ const savingsSlice = createSlice({
     clearSavingsError(state) {
       state.error = null;
     },
+    invalidateSavings(state) {
+      state.stale = true;
+    },
     setLoading: (state, action) => {
       state.loading = action.payload;
     },
@@ -141,6 +145,7 @@ const savingsSlice = createSlice({
       .addCase(fetchSavingsByCycle.fulfilled, (state, { payload }) => {
         state.loading = false;
         state.savings = payload;
+        state.stale = false;
       })
       .addCase(fetchSavingsByCycle.rejected, (state, { payload }) => {
         state.loading = false;
@@ -154,6 +159,7 @@ const savingsSlice = createSlice({
       .addCase(fetchSavingsByUser.fulfilled, (state, { payload }) => {
         state.loading = false;
         state.savings = payload;
+        state.stale = false;
       })
       .addCase(fetchSavingsByUser.rejected, (state, { payload }) => {
         state.loading = false;
@@ -222,6 +228,7 @@ export const {
   verifySavings,
   deleteSavings,
   clearSavingsError,
+  invalidateSavings,
   setLoading,
   setError,
 } = savingsSlice.actions;

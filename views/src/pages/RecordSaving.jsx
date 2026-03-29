@@ -104,7 +104,7 @@ export function RecordSavings() {
         );
         return;
       }
-      entries.push({ userId: m.id, amount: amt });
+      entries.push({ userId: m.id, amount: amt, memberName: m.name  });
     }
 
     if (entries.length === 0) {

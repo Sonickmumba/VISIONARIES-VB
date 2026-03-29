@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
-import { ProtectedRoute, PublicOnlyRoute } from './components/RouteGuards'
+import { ProtectedRoute, PublicOnlyRoute, AdminRoute } from './components/RouteGuards'
 import { fetchCurrentUser } from './store/slices/authSlice'
 import { Welcome } from './pages/Welcome'
 import Dashboard from './pages/Dashboard'
@@ -16,6 +16,8 @@ import { Groups } from './pages/Groups'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import { CycleManagement } from './pages/CycleManagement'
+import { RecordRepayment } from './pages/RecordRepayment'
+import { Approvals } from './pages/Approvals'
 
 import './App.css'
 
@@ -43,6 +45,10 @@ function App() {
               <Route path="disburse-loan" element={<DisburseLoan />} />
               <Route path="cycles" element={<CycleManagement />} />
               <Route path="notifications" element={<div className="p-4">Page not found</div>} />
+              <Route path='record-repayment/:memberId?' element={<RecordRepayment />} />
+              <Route element={<AdminRoute />}>
+                <Route path='approvals' element={<Approvals />} />
+              </Route>
             </Route>
           </Route>
         </Routes>

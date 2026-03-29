@@ -16,8 +16,9 @@ exports.createLoan = async (req, res) => {
   const client = await db.pool.connect();
 
   try {
-    const { cycleId, amount, purpose } = req.body;
-    const userId = req.user.id;
+    const { cycleId, userId: bodyUserId, amount, purpose, memberName } = req.body;
+    // Use the provided userId (for admin creating on behalf of member), fallback to logged-in user
+    const userId = bodyUserId || req.user.id;
     const loanAmount = toNumber(amount);
 
     if (loanAmount <= 0) {
@@ -55,15 +56,16 @@ exports.createLoan = async (req, res) => {
     const interestAmount = calculateLoanInterest(loanAmount);
     const totalAmount = loanAmount + interestAmount;
 
-    // Create loan application
+    // Create loan application with due_date 31 days from now
     const result = await client.query(
-      `INSERT INTO loans (cycle_id, user_id, amount, interest_amount, total_amount, purpose, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO loans (cycle_id, user_id, amount, interest_amount, total_amount, purpose, status, due_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, (CURRENT_DATE + INTERVAL '31 days'))
        RETURNING *`,
       [cycleId, userId, loanAmount, interestAmount, totalAmount, purpose, LOAN_STATUS.PENDING]
     );
 
     const loan = result.rows[0];
+    const newLoan = { ...loan, memberName };
 
     // Log audit
     await logAudit(
@@ -71,9 +73,9 @@ exports.createLoan = async (req, res) => {
       userId,
       'LOAN_CREATED',
       'loans',
-      loan.id,
+      newLoan.id,
       null,
-      loan,
+      newLoan,
       req.ip,
       req.headers['user-agent']
     );
@@ -94,7 +96,7 @@ exports.createLoan = async (req, res) => {
         NOTIFICATION_TYPES.SYSTEM_ALERT,
         'New Loan Application',
         `A member has applied for a loan of K${loanAmount.toFixed(2)}`,
-        loan.id
+        newLoan.id
       );
     }
 
@@ -103,7 +105,7 @@ exports.createLoan = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Loan application submitted successfully',
-      data: loan,
+      data: newLoan,
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -126,8 +128,8 @@ exports.getLoansByCycle = async (req, res) => {
 
     const result = await db.query(
       `SELECT l.*, 
-              u.first_name, u.last_name, u.email,
-              a.first_name as approved_by_first_name, a.last_name as approved_by_last_name
+              u.name AS member_name, u.email,
+              a.name as approved_by_name
        FROM loans l
        INNER JOIN users u ON l.user_id = u.id
        LEFT JOIN users a ON l.approved_by = a.id
@@ -159,9 +161,11 @@ exports.getLoansByUser = async (req, res) => {
     const result = await db.query(
       `SELECT l.*, 
               c.name as cycle_name, c.start_date, c.end_date,
-              a.first_name as approved_by_first_name, a.last_name as approved_by_last_name
+              u.name AS member_name,
+              a.name as approved_by_name
        FROM loans l
        INNER JOIN cycles c ON l.cycle_id = c.id
+       INNER JOIN users u ON l.user_id = u.id
        LEFT JOIN users a ON l.approved_by = a.id
        WHERE l.user_id = $1
        ORDER BY l.requested_date DESC`,
@@ -190,9 +194,9 @@ exports.getLoanById = async (req, res) => {
 
     const result = await db.query(
       `SELECT l.*, 
-              u.first_name, u.last_name, u.email, u.phone,
+              u.name AS member_name, u.email, u.phone,
               c.name as cycle_name,
-              a.first_name as approved_by_first_name, a.last_name as approved_by_last_name
+              a.name as approved_by_name
        FROM loans l
        INNER JOIN users u ON l.user_id = u.id
        INNER JOIN cycles c ON l.cycle_id = c.id
@@ -211,7 +215,7 @@ exports.getLoanById = async (req, res) => {
     // Get repayments
     const repaymentsResult = await db.query(
       `SELECT lr.*, 
-              v.first_name as verified_by_first_name, v.last_name as verified_by_last_name
+              v.name as verified_by_name
        FROM loan_repayments lr
        LEFT JOIN users v ON lr.verified_by = v.id
        WHERE lr.loan_id = $1
@@ -288,6 +292,13 @@ exports.approveLoan = async (req, res) => {
     );
 
     const updatedLoan = result.rows[0];
+
+    // Fetch member name for the response
+    const memberResult = await client.query(
+      `SELECT name AS member_name FROM users WHERE id = $1`,
+      [loan.user_id]
+    );
+    updatedLoan.member_name = memberResult.rows[0]?.member_name || null;
 
     // Notify member
     const notificationType = status === 'approved'
@@ -389,6 +400,13 @@ exports.disburseLoan = async (req, res) => {
     );
 
     const updatedLoan = result.rows[0];
+
+    // Fetch member name for the response
+    const memberResult = await client.query(
+      `SELECT name AS member_name FROM users WHERE id = $1`,
+      [loan.user_id]
+    );
+    updatedLoan.member_name = memberResult.rows[0]?.member_name || null;
 
     // Get current balance
     const balanceResult = await client.query(

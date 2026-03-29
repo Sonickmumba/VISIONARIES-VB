@@ -9,6 +9,7 @@ const router = express.Router();
 // Validation rules
 const createLoanValidation = [
   body('cycleId').isUUID().withMessage('Valid cycle ID is required'),
+  body('userId').optional().isUUID().withMessage('Valid user ID is required'),
   body('amount').isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
   body('purpose').optional().trim(),
 ];
