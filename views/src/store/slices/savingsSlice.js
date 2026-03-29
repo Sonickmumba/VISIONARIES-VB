@@ -86,6 +86,30 @@ export const deleteSavingsRecord = createAsyncThunk(
   }
 );
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const mapSaving = (s) => ({
+  id: s.id,
+  userId: s.user_id ?? s.userId,
+  userName: s.user_name ?? s.userName,
+  memberName: s.memberName ?? s.user_name ?? s.userName,
+  email: s.email,
+  cycleId: s.cycle_id ?? s.cycleId,
+  amount: s.amount,
+  month: s.month,
+  year: s.year,
+  notes: s.notes,
+  status: s.status,
+  paymentDate: s.payment_date ?? s.paymentDate,
+  proofUrl: s.proof_url ?? s.proofUrl,
+  interestEarned: s.interestEarned ?? s.interest_earned,
+  verifiedBy: s.verified_by ?? s.verifiedBy,
+  verifiedByName: s.verified_by_name ?? s.verifiedByName,
+  verifiedAt: s.verified_at ?? s.verifiedAt,
+  createdAt: s.created_at ?? s.createdAt,
+  updatedAt: s.updated_at ?? s.updatedAt,
+});
+
 // ── Slice ────────────────────────────────────────────────────────────────────
 
 const savingsSlice = createSlice({
@@ -144,7 +168,7 @@ const savingsSlice = createSlice({
       })
       .addCase(fetchSavingsByCycle.fulfilled, (state, { payload }) => {
         state.loading = false;
-        state.savings = payload;
+        state.savings = (payload || []).map(mapSaving);
         state.stale = false;
       })
       .addCase(fetchSavingsByCycle.rejected, (state, { payload }) => {
@@ -158,7 +182,7 @@ const savingsSlice = createSlice({
       })
       .addCase(fetchSavingsByUser.fulfilled, (state, { payload }) => {
         state.loading = false;
-        state.savings = payload;
+        state.savings = (payload || []).map(mapSaving);
         state.stale = false;
       })
       .addCase(fetchSavingsByUser.rejected, (state, { payload }) => {
@@ -172,7 +196,7 @@ const savingsSlice = createSlice({
       })
       .addCase(createSavingsRecord.fulfilled, (state, { payload }) => {
         state.submitting = false;
-        state.savings.push(payload);
+        state.savings.push(mapSaving(payload));
       })
       .addCase(createSavingsRecord.rejected, (state, { payload }) => {
         state.submitting = false;
@@ -185,7 +209,7 @@ const savingsSlice = createSlice({
       })
       .addCase(createBulkSavings.fulfilled, (state, { payload }) => {
         state.submitting = false;
-        state.savings.push(...payload);
+        state.savings.push(...(payload || []).map(mapSaving));
       })
       .addCase(createBulkSavings.rejected, (state, { payload }) => {
         state.submitting = false;
@@ -198,8 +222,9 @@ const savingsSlice = createSlice({
       })
       .addCase(verifySavingsRecord.fulfilled, (state, { payload }) => {
         state.submitting = false;
-        const index = state.savings.findIndex(s => s.id === payload.id);
-        if (index !== -1) state.savings[index] = payload;
+        const mapped = mapSaving(payload);
+        const index = state.savings.findIndex(s => s.id === mapped.id);
+        if (index !== -1) state.savings[index] = { ...state.savings[index], ...mapped };
       })
       .addCase(verifySavingsRecord.rejected, (state, { payload }) => {
         state.submitting = false;
