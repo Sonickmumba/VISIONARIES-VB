@@ -66,7 +66,7 @@ export function RecordSavings() {
     const totals = {};
     if (Array.isArray(cycleSavings)) {
       for (const s of cycleSavings) {
-        const uid = s.user_id;
+        const uid = s.userId ?? s.user_id;
         totals[uid] = (totals[uid] || 0) + parseFloat(s.amount || 0);
       }
     }
