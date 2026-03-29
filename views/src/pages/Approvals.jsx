@@ -62,7 +62,7 @@ export function Approvals() {
   // Filter pending items — resolve memberName from members list as fallback
   const pendingSavings = savings
     .filter((s) => s.status === "pending")
-    .map((s) => ({ ...s, memberName: s.memberName || s.user_name || getMemberName(s.user_id) }));
+    .map((s) => ({ ...s, memberName: s.memberName || s.userName || getMemberName(s.userId) }));
   const pendingLoans = loans.filter((l) => l.status === "pending" || l.status === "requested");
   const pendingRepayments = loans.flatMap((loan) =>
     (loan.repayments || [])
@@ -101,8 +101,8 @@ export function Approvals() {
     }
     
     return items.sort((a, b) => {
-      const dateA = new Date(a.paymentDate || a.requestedDate || a.createdAt || 0);
-      const dateB = new Date(b.paymentDate || b.requestedDate || b.createdAt || 0);
+      const dateA = new Date(a.paymentDate || a.requestedDate || a.createdAt || a.payment_date || a.requested_date || a.created_at || 0);
+      const dateB = new Date(b.paymentDate || b.requestedDate || b.createdAt || b.payment_date || b.requested_date || b.created_at || 0);
       return dateB - dateA;
     });
   };
@@ -277,9 +277,6 @@ export function Approvals() {
     }
   };
 
-  console.log("Filtered Items:", filteredItems);
-  console.log("Selected Item:", selectedItem);
-
   return (
     <div className="space-y-4 sm:space-y-6 pb-6">
       {/* Header */}
@@ -440,7 +437,7 @@ export function Approvals() {
                         </div>
 
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          <p>Date: {item?.payment_date ? new Date(item.payment_date).toLocaleDateString() : item.requested_date ? new Date(item.requested_date).toLocaleDateString() : ''}</p>
+                          <p>Date: {item?.paymentDate ? new Date(item.paymentDate).toLocaleDateString() : item.requestedDate ? new Date(item.requestedDate).toLocaleDateString() : ''}</p>
                           {item.purpose && <p className="mt-1">Purpose: {item.purpose}</p>}
                         </div>
 
@@ -488,7 +485,7 @@ export function Approvals() {
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {item.purpose || `${item?.payment_date ? new Date(item.payment_date).toLocaleDateString() : item.requested_date ? new Date(item.requested_date).toLocaleDateString() : ''}`}
+                              {item.purpose || `${item?.paymentDate ? new Date(item.paymentDate).toLocaleDateString() : item.requestedDate ? new Date(item.requestedDate).toLocaleDateString() : ''}`}
                             </p>
                           </div>
                         </div>
@@ -499,7 +496,7 @@ export function Approvals() {
                               K{item.amount?.toLocaleString()}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {item?.payment_date ? new Date(item.payment_date).toLocaleDateString() : item.requested_date ? new Date(item.requested_date).toLocaleDateString() : ''}
+                              {item?.paymentDate ? new Date(item.paymentDate).toLocaleDateString() : item.requestedDate ? new Date(item.requestedDate).toLocaleDateString() : ''}
                             </p>
                           </div>
 
@@ -596,7 +593,7 @@ export function Approvals() {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Date</p>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {selectedItem?.payment_date ? new Date(selectedItem.payment_date).toLocaleDateString() : selectedItem.requested_date ? new Date(selectedItem.requested_date).toLocaleDateString() : selectedItem.created_at ? new Date(selectedItem.created_at).toLocaleDateString() : ''}
+                        {selectedItem?.paymentDate ? new Date(selectedItem.paymentDate).toLocaleDateString() : selectedItem.requestedDate ? new Date(selectedItem.requestedDate).toLocaleDateString() : selectedItem.createdAt ? new Date(selectedItem.createdAt).toLocaleDateString() : ''}
                       </p>
                     </div>
                     <div>
@@ -623,21 +620,21 @@ export function Approvals() {
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Interest</p>
                           <p className="font-semibold text-gray-900 dark:text-white">
-                            K{selectedItem.interest_amount?.toLocaleString()}
+                            K{(selectedItem.interestAmount ?? selectedItem.interest_amount)?.toLocaleString()}
                           </p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
                           <p className="font-semibold text-gray-900 dark:text-white">
-                            K{selectedItem.total_amount?.toLocaleString()}
+                            K{(selectedItem.totalAmount ?? selectedItem.total_amount)?.toLocaleString()}
                           </p>
                         </div>
                       </div>
-                      {selectedItem.due_date && (
+                      {(selectedItem.dueDate || selectedItem.due_date) && (
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Due Date</p>
                           <p className="font-semibold text-gray-900 dark:text-white">
-                            {selectedItem.due_date ? new Date(selectedItem.due_date).toLocaleDateString() : new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                            {new Date(selectedItem.dueDate || selectedItem.due_date).toLocaleDateString()}
                           </p>
                         </div>
                       )}
