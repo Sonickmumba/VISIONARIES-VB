@@ -63,7 +63,7 @@ export function Approvals() {
   const pendingSavings = savings
     .filter((s) => s.status === "pending")
     .map((s) => ({ ...s, memberName: s.memberName || s.userName || getMemberName(s.userId) }));
-  const pendingLoans = loans.filter((l) => l.status === "pending" || l.status === "requested");
+  const pendingLoans = loans.filter((l) => l.status === "pending" || l.status === "requested" || l.status === "approved");
   const pendingRepayments = loans.flatMap((loan) =>
     (loan.repayments || [])
       .filter((r) => r.status === "pending")
