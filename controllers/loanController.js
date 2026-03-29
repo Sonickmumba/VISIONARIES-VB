@@ -138,9 +138,32 @@ exports.getLoansByCycle = async (req, res) => {
       [cycleId]
     );
 
+    // Attach repayments to each loan
+    const loanIds = result.rows.map((l) => l.id);
+    let repaymentsByLoan = {};
+    if (loanIds.length > 0) {
+      const repResult = await db.query(
+        `SELECT lr.*, v.name AS verified_by_name
+         FROM loan_repayments lr
+         LEFT JOIN users v ON lr.verified_by = v.id
+         WHERE lr.loan_id = ANY($1)
+         ORDER BY lr.payment_date DESC`,
+        [loanIds]
+      );
+      for (const r of repResult.rows) {
+        if (!repaymentsByLoan[r.loan_id]) repaymentsByLoan[r.loan_id] = [];
+        repaymentsByLoan[r.loan_id].push(r);
+      }
+    }
+
+    const loansWithRepayments = result.rows.map((loan) => ({
+      ...loan,
+      repayments: repaymentsByLoan[loan.id] || [],
+    }));
+
     res.json({
       success: true,
-      data: result.rows,
+      data: loansWithRepayments,
     });
   } catch (error) {
     console.error('Get loans by cycle error:', error);
@@ -738,11 +761,21 @@ exports.verifyRepayment = async (req, res) => {
       req.headers['user-agent']
     );
 
+    // Fetch the updated repayment to return
+    const updatedRepayment = await client.query(
+      `SELECT lr.*, v.name AS verified_by_name
+       FROM loan_repayments lr
+       LEFT JOIN users v ON lr.verified_by = v.id
+       WHERE lr.id = $1`,
+      [repaymentId]
+    );
+
     await client.query('COMMIT');
 
     res.json({
       success: true,
       message: `Loan repayment ${status} successfully`,
+      data: updatedRepayment.rows[0] || null,
     });
   } catch (error) {
     await client.query('ROLLBACK');
