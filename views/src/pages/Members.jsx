@@ -25,11 +25,13 @@ export function Members() {
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
   // Fetch members once on mount
+  const stale = useSelector((state) => state.members.stale);
+
   useEffect(() => {
-    if (members.length === 0 && !loading && !error) {
+    if ((members.length === 0 && !loading && !error) || stale) {
       dispatch(fetchMembers());
     }
-  }, [dispatch, members.length, loading, error]);
+  }, [dispatch, members.length, loading, error, stale]);
 
   // Memoized filtering — only recalculates when inputs change
   const filteredMembers = useMemo(() => {

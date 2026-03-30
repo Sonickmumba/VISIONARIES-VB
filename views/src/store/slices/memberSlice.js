@@ -42,6 +42,7 @@ const memberSlice = createSlice({
     selectedMember: null,
     loading: false,
     error: null,
+    stale: false,
   },
   reducers: {
     clearMemberError(state) {
@@ -49,6 +50,9 @@ const memberSlice = createSlice({
     },
     clearSelectedMember(state) {
       state.selectedMember = null;
+    },
+    invalidateMembers(state) {
+      state.stale = true;
     },
   },
   extraReducers: (builder) => {
@@ -61,6 +65,7 @@ const memberSlice = createSlice({
       .addCase(fetchMembers.fulfilled, (state, { payload }) => {
         state.loading = false;
         state.members = payload;
+        state.stale = false;
       })
       .addCase(fetchMembers.rejected, (state, { payload }) => {
         state.loading = false;
@@ -82,5 +87,5 @@ const memberSlice = createSlice({
   },
 });
 
-export const { clearMemberError, clearSelectedMember } = memberSlice.actions;
+export const { clearMemberError, clearSelectedMember, invalidateMembers } = memberSlice.actions;
 export default memberSlice.reducer;

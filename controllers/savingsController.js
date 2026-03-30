@@ -16,7 +16,7 @@ exports.createSavings = async (req, res) => {
   const client = await db.pool.connect();
 
   try {
-    const { cycleId, userId, amount, month, year, proofUrl, notes } = req.body;
+    const { cycleId, userId, amount, month, year, proofUrl, notes, memberName } = req.body;
     const savingsAmount = toNumber(amount);
 
     if (savingsAmount <= 0) {
@@ -103,6 +103,8 @@ exports.createSavings = async (req, res) => {
     );
 
     const savings = result.rows[0];
+    const updatedSavings = { ...savings, memberName };
+    console.log('Created savings:', updatedSavings);
 
     // Log audit
     await logAudit(
@@ -110,9 +112,9 @@ exports.createSavings = async (req, res) => {
       req.user.id,
       'SAVINGS_CREATED',
       'savings',
-      savings.id,
+      updatedSavings.id,
       null,
-      savings,
+      updatedSavings,
       req.ip,
       req.headers['user-agent']
     );
@@ -142,7 +144,7 @@ exports.createSavings = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Savings recorded successfully',
-      data: savings,
+      data: updatedSavings,
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -179,9 +181,9 @@ exports.getSavingsByCycle = async (req, res) => {
     const savingsWithInterest = result.rows.map(saving => {
       const monthsElapsed = 12 - saving.month; // Simplified - should calculate from actual dates
       const interest = calculateSavingsInterest(toNumber(saving.amount), monthsElapsed);
-      
       return {
         ...saving,
+        memberName: saving.user_name, // Add memberName for frontend
         interestEarned: interest,
       };
     });
@@ -218,9 +220,14 @@ exports.getSavingsByUser = async (req, res) => {
       [userId]
     );
 
+    // Add memberName for frontend
+    const savingsWithMemberName = result.rows.map(saving => ({
+      ...saving,
+      memberName: saving.user_name || saving.name, // fallback if needed
+    }));
     res.json({
       success: true,
-      data: result.rows,
+      data: savingsWithMemberName,
     });
   } catch (error) {
     console.error('Get savings by user error:', error);

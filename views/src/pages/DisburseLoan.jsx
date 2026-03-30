@@ -35,8 +35,10 @@ export function DisburseLoan() {
     try {
       await dispatch(createLoan({
         cycleId: currentCycle.id,
+        userId: selectedMember,
         amount: parseFloat(amount),
         purpose,
+        memberName: selectedMemberData?.name,
       })).unwrap();
       toast.success(`Loan of K${parseFloat(amount).toLocaleString()} disbursed successfully!`);
       dispatch(fetchMembers()); // Refresh member data
