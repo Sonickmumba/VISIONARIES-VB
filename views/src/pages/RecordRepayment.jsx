@@ -42,6 +42,8 @@ export function RecordRepayment() {
   const [paymentMethod, setPaymentMethod] = useState("mobile_money");
   const [referenceNo, setReferenceNo] = useState("");
   const [proofFile, setProofFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Find active loans for selected member (any loan with remaining balance, excluding rejected/defaulted)
   const memberLoans = useMemo(
@@ -67,6 +69,11 @@ export function RecordRepayment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isSubmittingRef.current) {
+      return;
+    }
+
     if (!selectedMember) {
       toast.error("Please select a member");
       return;
@@ -88,12 +95,15 @@ export function RecordRepayment() {
       toast.error("Please upload payment proof");
       return;
     }
+
     const noteParts = [];
     if (paymentMethod) noteParts.push(`Payment method: ${paymentMethod.replace("_", " ")}`);
     if (referenceNo) noteParts.push(`Ref: ${referenceNo}`);
 
+    setIsSubmitting(true);
+    isSubmittingRef.current = true;
+
     try {
-      // Upload the proof file first
       const formData = new FormData();
       formData.append('proof', proofFile);
       const uploadResponse = await axios.post('/api/upload', formData, {
@@ -107,12 +117,16 @@ export function RecordRepayment() {
         proofUrl,
         notes: noteParts.join(" | "),
       })).unwrap();
+
       toast.success("Repayment recorded! Awaiting verification.");
       setAmount("");
       setReferenceNo("");
       setProofFile(null);
     } catch (err) {
-      toast.error(err || "Failed to record repayment");
+      toast.error(err?.message || err || "Failed to record repayment");
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -285,6 +299,7 @@ export function RecordRepayment() {
                 Upload Payment Proof
               </label>
               <input
+                data-testid="proof-file"
                 type="file"
                 accept="image/*,.pdf"
                 onChange={(e) => setProofFile(e.target.files[0])}
@@ -309,10 +324,10 @@ export function RecordRepayment() {
               <button
                 type="submit"
                 className="flex-1 flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                disabled={loansLoading || !selectedLoanId || !canRepay}
+                disabled={loansLoading || isSubmitting || !selectedLoanId || !canRepay}
               >
                 <CheckCircle className="w-4 h-4" />
-                <span>{loansLoading ? 'Recording...' : 'Record Repayment'}</span>
+                <span>{isSubmitting ? 'Recording...' : 'Record Repayment'}</span>
               </button>
             </div>
           </form>
