@@ -544,6 +544,26 @@ exports.repayLoan = async (req, res) => {
       });
     }
 
+    // Prevent accidental duplicate submissions (same amount/proof/notes within 30s)
+    const duplicateCheck = await client.query(
+      `SELECT id FROM loan_repayments
+       WHERE loan_id = $1
+         AND amount = $2
+         AND proof_url = $3
+         AND notes = $4
+         AND created_at >= NOW() - INTERVAL '30 seconds'
+       LIMIT 1`,
+      [id, repaymentAmount, proofUrl, notes]
+    );
+
+    if (duplicateCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        message: 'Duplicate repayment submission detected. Please wait and refresh.',
+      });
+    }
+
     // Create repayment record
     const result = await client.query(
       `INSERT INTO loan_repayments (loan_id, amount, proof_url, notes)
