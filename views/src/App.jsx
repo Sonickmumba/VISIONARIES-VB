@@ -18,6 +18,7 @@ import { Signup } from './pages/Signup'
 import { CycleManagement } from './pages/CycleManagement'
 import { RecordRepayment } from './pages/RecordRepayment'
 import { Approvals } from './pages/Approvals'
+import { ShareoutReport } from './pages/ShareoutReport'
 
 import './App.css'
 
@@ -46,6 +47,8 @@ function App() {
               <Route path="cycles" element={<CycleManagement />} />
               <Route path="notifications" element={<div className="p-4">Page not found</div>} />
               <Route path='record-repayment/:memberId?' element={<RecordRepayment />} />
+              <Route path='shareout' element={<ShareoutReport />} />
+              <Route path='shareout-report' element={<ShareoutReport />} />
               <Route element={<AdminRoute />}>
                 <Route path='approvals' element={<Approvals />} />
               </Route>
