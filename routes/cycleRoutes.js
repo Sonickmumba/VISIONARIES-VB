@@ -22,6 +22,7 @@ router.get('/:id', authenticate, cycleController.getCycleById);
 router.put('/:id', authenticate, isAdmin, cycleController.updateCycle);
 router.post('/:id/close', authenticate, isAdmin, cycleController.closeCycle);
 router.post('/:id/calculate-shareout', authenticate, isAdmin, cycleController.calculateShareout);
+router.post('/:id/send-shareout-report', authenticate, isAdmin, cycleController.sendShareoutReport);
 router.delete('/:id', authenticate, isAdmin, cycleController.deleteCycle);
 
 module.exports = router;
