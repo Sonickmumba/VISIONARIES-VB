@@ -20,6 +20,7 @@ import { RecordRepayment } from './pages/RecordRepayment'
 import { Approvals } from './pages/Approvals'
 import { ShareoutReport } from './pages/ShareoutReport'
 import { MonthlyReport } from './pages/MonthlyReport'
+import { CommonInterestCalculator } from './pages/CommonInterestCalculator'
 
 import './App.css'
 
@@ -51,6 +52,7 @@ function App() {
               <Route path='shareout' element={<ShareoutReport />} />
               <Route path='shareout-report' element={<ShareoutReport />} />
               <Route path='monthly-report' element={<MonthlyReport />} />
+              <Route path='common-interest' element={<CommonInterestCalculator />} />
               <Route element={<AdminRoute />}>
                 <Route path='approvals' element={<Approvals />} />
               </Route>
