@@ -1,54 +1,141 @@
-import { Link } from "react-router";
-import { ArrowLeft, Download, Printer, Mail, CheckCircle2, AlertTriangle, Info } from "lucide-react";
-import { useSelector } from "react-redux";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Download, Mail, CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { useSelector, useDispatch } from "react-redux";
+import { useEffect, useMemo } from "react";
+import { fetchShareoutByCycle, fetchCyclesByGroup } from "../store/slices/cycleSlice";
 
 export function ShareoutReport() {
+  const dispatch = useDispatch();
   const members = useSelector((state) => state.members.members);
   const currentCycle = useSelector((state) => state.cycles.currentCycle);
+  const cycles = useSelector((state) => state.cycles.cycles);
+  const cyclesLoading = useSelector((state) => state.cycles.loading);
   const selectedGroup = useSelector((state) => state.groups.selectedGroup);
   const loans = useSelector((state) => state.loans.loans);
+  const shareoutDataFromApi = useSelector((state) => state.cycles.shareoutData);
+  const shareoutLoading = useSelector((state) => state.cycles.shareoutLoading);
+  const shareoutError = useSelector((state) => state.cycles.shareoutError);
+
+  // Fetch cycles for selected group if not already loaded
+  useEffect(() => {
+    if (selectedGroup?.id && cycles.length === 0) {
+      dispatch(fetchCyclesByGroup(selectedGroup.id));
+    }
+  }, [dispatch, selectedGroup?.id, cycles.length]);
+
+  // Auto-select first active cycle if currentCycle is not set
+  const activeCycle = useMemo(() => {
+    if (currentCycle?.id) return currentCycle;
+    if (cycles.length > 0) {
+      const active = cycles.find((c) => c.status === 'active') || cycles[0];
+      return active || null;
+    }
+    return null;
+  }, [currentCycle, cycles]);
+
+  // Fetch shareout when we have a cycle
+  useEffect(() => {
+    if (activeCycle?.id) {
+      dispatch(fetchShareoutByCycle(activeCycle.id));
+    }
+  }, [dispatch, activeCycle?.id]);
 
   // Filter members by selected group
-  const groupMembers = members.filter(m => m.groupId === selectedGroup?.id);
+  const groupMembers = useMemo(() => members.filter((m) => m.groupId === selectedGroup?.id), [members, selectedGroup?.id]);
 
-  // Calculate shareout for each member
-  const shareoutData = groupMembers.map((member) => {
-    const commonInterestOwed = member.shortfall > 0 ? (member.shortfall * 0.15) : 0;
+  const computedShareoutData = useMemo(() => {
+    return groupMembers.map((member) => {
+      const shortfall = Number(member.shortfall || 0);
+      const commonInterestOwed = shortfall > 0 ? shortfall * 0.15 : 0;
 
-    const savings = member.totalSavings || 0;
-    const loanOwed = member.loanBalance || 0;
-    const penalty = 0; // Add penalty logic if needed
-    
-    // Shareout = Savings - Loan Owed - Common Interest Owed - Penalties
-    const shareout = savings - loanOwed - commonInterestOwed - penalty;
+      const savings = Number(member.totalSavings || member.total_savings || 0);
+      const loanOwed = Number(member.loanBalance || member.outstanding_loan || member.loan_balance || 0);
+      const penalty = Number(member.penalty || 0);
 
-    return {
-      ...member,
-      savings,
-      loanOwed,
-      penalty,
-      commonInterestOwed,
-      shareout,
-      payoutStatus: shareout > 0 ? "pending" : "owes",
-    };
-  });
+      const shareout = savings - loanOwed - commonInterestOwed - penalty;
+      return {
+        id: member.id || member.user_id,
+        name: member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unnamed Member',
+        memberNo: member.member_no || member.memberNo || member.user_no || '',
+        savings,
+        loanOwed,
+        penalty,
+        commonInterestOwed,
+        shareout,
+        payoutStatus: shareout > 0 ? 'pending' : 'owes',
+      };
+    });
+  }, [groupMembers]);
 
-  const totalSavings = shareoutData.reduce((sum, item) => sum + item.savings, 0);
-  const totalLoansOutstanding = shareoutData.reduce((sum, item) => sum + item.loanOwed, 0);
-  const totalPenalties = shareoutData.reduce((sum, item) => sum + item.penalty, 0);
-  const totalCommonInterest = shareoutData.reduce((sum, item) => sum + item.commonInterestOwed, 0);
-  const netAvailable = totalSavings - totalLoansOutstanding - totalPenalties - totalCommonInterest;
+  const shareoutData = useMemo(() => {
+    if (shareoutDataFromApi && shareoutDataFromApi.length > 0) {
+      return shareoutDataFromApi.map((row) => {
+        const member = members.find((m) => m.id === row.userId || m.user_id === row.userId || m.id === row.user_id);
+        const savings = Number(row.totalSavings || row.total_savings || row.total_savings_amount || 0);
+        const commonInterestOwed = Number(row.commonInterest || row.common_interest || 0);
+        const totalAmount = Number(row.totalAmount || row.total_amount || 0);
+        const loanOwed = Number(member?.loanBalance || member?.outstanding_loan || member?.loan_balance || 0);
+        const penalty = Number(member?.penalty || 0);
 
-  const membersToReceive = shareoutData.filter((item) => item.shareout > 0).length;
-  const membersWhoOwe = shareoutData.filter((item) => item.shareout < 0).length;
-  const totalToPayout = shareoutData
-    .filter((item) => item.shareout > 0)
-    .reduce((sum, item) => sum + item.shareout, 0);
-  const totalToCollect = Math.abs(
-    shareoutData
-      .filter((item) => item.shareout < 0)
-      .reduce((sum, item) => sum + item.shareout, 0)
-  );
+        return {
+          id: row.userId || row.user_id,
+          name: member?.name || `${member?.first_name || ''} ${member?.last_name || ''}`.trim() || `Member ${row.userId}`,
+          memberNo: member?.member_no || member?.memberNo || '',
+          savings,
+          loanOwed,
+          penalty,
+          commonInterestOwed,
+          shareout: totalAmount,
+          payoutStatus: totalAmount > 0 ? 'pending' : 'owes',
+        };
+      });
+    }
+
+    return computedShareoutData;
+  }, [shareoutDataFromApi, members, computedShareoutData]);
+
+  const totalSavings = useMemo(() => shareoutData.reduce((sum, item) => sum + Number(item.savings || 0), 0), [shareoutData]);
+  const totalLoansOutstanding = useMemo(() => shareoutData.reduce((sum, item) => sum + Number(item.loanOwed || 0), 0), [shareoutData]);
+  const totalPenalties = useMemo(() => shareoutData.reduce((sum, item) => sum + Number(item.penalty || 0), 0), [shareoutData]);
+  const totalCommonInterest = useMemo(() => shareoutData.reduce((sum, item) => sum + Number(item.commonInterestOwed || 0), 0), [shareoutData]);
+  const netAvailable = useMemo(() => totalSavings - totalLoansOutstanding - totalPenalties - totalCommonInterest, [totalSavings, totalLoansOutstanding, totalPenalties, totalCommonInterest]);
+
+  const membersToReceive = useMemo(() => shareoutData.filter((item) => item.shareout > 0).length, [shareoutData]);
+  const membersWhoOwe = useMemo(() => shareoutData.filter((item) => item.shareout < 0).length, [shareoutData]);
+  const totalToPayout = useMemo(() => shareoutData.filter((item) => item.shareout > 0).reduce((sum, item) => sum + item.shareout, 0), [shareoutData]);
+  const totalToCollect = useMemo(() => Math.abs(shareoutData.filter((item) => item.shareout < 0).reduce((sum, item) => sum + item.shareout, 0)), [shareoutData]);
+
+  if (cyclesLoading && cycles.length === 0) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-lg text-gray-700">Loading cycles...</p>
+      </div>
+    );
+  }
+
+  if (!activeCycle) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-lg text-gray-700">No cycles available. Please create or activate a cycle first.</p>
+      </div>
+    );
+  }
+
+  if (shareoutLoading && (shareoutData.length === 0 || !shareoutDataFromApi?.length)) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-lg text-gray-700">Calculating shareout, please wait...</p>
+      </div>
+    );
+  }
+
+  if (shareoutError) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-lg text-red-600">{shareoutError}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -59,8 +146,14 @@ export function ShareoutReport() {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </Link>
           <div>
-            <h1 className="text-xl sm:text-3xl font-bold text-gray-900">📊 Cycle 11 Shareout Report</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">December 2026</p>
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900">
+              📊 {activeCycle?.name || 'Shareout'} Report
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              {activeCycle?.start_date && activeCycle?.end_date
+                ? `${new Date(activeCycle.start_date).toLocaleDateString()} - ${new Date(activeCycle.end_date).toLocaleDateString()}`
+                : 'Cycle Details'}
+            </p>
           </div>
         </div>
         <div className="flex gap-2 sm:gap-3">
@@ -82,17 +175,17 @@ export function ShareoutReport() {
           <div>
             <p className="text-blue-100 text-xs sm:text-sm">Cycle Period</p>
             <p className="font-semibold text-sm sm:text-base mt-1">
-              {new Date(currentCycle.startDate).toLocaleDateString()} -{" "}
-              {new Date(currentCycle.endDate).toLocaleDateString()}
+              {activeCycle?.start_date ? new Date(activeCycle.start_date).toLocaleDateString() : 'N/A'} -{" "}
+              {activeCycle?.end_date ? new Date(activeCycle.end_date).toLocaleDateString() : 'N/A'}
             </p>
           </div>
           <div>
-            <p className="text-blue-100 text-xs sm:text-sm">Shareout Date</p>
-            <p className="font-semibold text-sm sm:text-base mt-1">December 31, 2026</p>
+            <p className="text-blue-100 text-xs sm:text-sm">Cycle Status</p>
+            <p className="font-semibold text-sm sm:text-base mt-1 capitalize">{activeCycle?.status || 'Unknown'}</p>
           </div>
           <div>
             <p className="text-blue-100 text-xs sm:text-sm">Total Members</p>
-            <p className="text-xl sm:text-2xl font-bold mt-1">{members.length}</p>
+            <p className="text-xl sm:text-2xl font-bold mt-1">{shareoutData.length}</p>
           </div>
           <div>
             <p className="text-blue-100 text-xs sm:text-sm">Net Available</p>
