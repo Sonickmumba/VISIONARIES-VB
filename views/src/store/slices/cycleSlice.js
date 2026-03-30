@@ -55,6 +55,23 @@ export const fetchShareoutByCycle = createAsyncThunk(
   }
 );
 
+/** Send shareout report via email */
+export const sendShareoutReportEmail = createAsyncThunk(
+  'cycles/sendShareoutReport',
+  async ({ cycleId, recipientEmail, subject, includeMembers }, { rejectWithValue }) => {
+    try {
+      const { data: res } = await axios.post(`/api/cycles/${cycleId}/send-shareout-report`, {
+        recipientEmail,
+        subject,
+        includeMembers,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to send report');
+    }
+  }
+);
+
 /** Create a new cycle */
 export const createCycleAsync = createAsyncThunk(
   'cycles/create',
@@ -91,6 +108,8 @@ const cycleSlice = createSlice({
     shareoutData: [],
     shareoutLoading: false,
     shareoutError: null,
+    emailLoading: false,
+    emailError: null,
     loading: false,
     error: null,
   },
@@ -144,7 +163,20 @@ const cycleSlice = createSlice({
       .addCase(fetchShareoutByCycle.rejected, (state, { payload }) => {
         state.shareoutLoading = false;
         state.shareoutError = payload;
-      })      // ── createCycleAsync ───────────────────────────────────────────────
+      })
+      // ── sendShareoutReportEmail ────────────────────────────────────────
+      .addCase(sendShareoutReportEmail.pending, (state) => {
+        state.emailLoading = true;
+        state.emailError = null;
+      })
+      .addCase(sendShareoutReportEmail.fulfilled, (state) => {
+        state.emailLoading = false;
+      })
+      .addCase(sendShareoutReportEmail.rejected, (state, { payload }) => {
+        state.emailLoading = false;
+        state.emailError = payload;
+      })
+      // ── createCycleAsync ───────────────────────────────────────────────
       .addCase(createCycleAsync.fulfilled, (state, { payload }) => {
         state.cycles.unshift(payload);
         if (payload.status === 'active') {
