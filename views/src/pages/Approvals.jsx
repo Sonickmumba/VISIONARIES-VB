@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { verifySavingsRecord, fetchSavingsByCycle } from "../store/slices/savingsSlice";
 import { approveLoan, disburseLoan, verifyRepayment, updateLoan, fetchLoans } from "../store/slices/loanSlice";
 import { invalidateMembers } from "../store/slices/memberSlice";
-import { CheckCircle2, XCircle, Clock, PiggyBank, DollarSign, HandCoins, Filter, Search, Eye, FileText, AlertCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, PiggyBank, DollarSign, HandCoins, Filter, Search, Eye, FileText, Download, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -58,6 +58,20 @@ export function Approvals() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState(null);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
+
+  // Handle ESC key to close zoom modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && zoomedImage) {
+        setZoomedImage(null);
+        setPdfLoadError(false);
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [zoomedImage]);
 
   // Filter pending items — resolve memberName from members list as fallback
   const pendingSavings = savings
@@ -78,6 +92,7 @@ export function Approvals() {
           memberName: loan.memberName,
           memberId: loan.memberId,
           proofUrl: r.proof_url, // Map to camelCase
+          paymentDate: r.paymentDate || r.payment_date || r.createdAt || r.created_at || r.updatedAt || r.updated_at,
           paymentMethod,
           referenceNo
         };
@@ -224,6 +239,7 @@ export function Approvals() {
 
   const handleViewDetails = (item) => {
     setSelectedItem(item);
+    setPdfLoadError(false);
     setShowDetailModal(true);
   };
 
@@ -451,7 +467,18 @@ export function Approvals() {
                         </div>
 
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          <p>Date: {item?.paymentDate ? new Date(item.paymentDate).toLocaleDateString() : item.requestedDate ? new Date(item.requestedDate).toLocaleDateString() : ''}</p>
+                          <p>Date: {(() => {
+                            const itemDate =
+                              item.paymentDate ||
+                              item.payment_date ||
+                              item.requestedDate ||
+                              item.requested_date ||
+                              item.createdAt ||
+                              item.created_at ||
+                              item.updatedAt ||
+                              item.updated_at;
+                            return itemDate ? new Date(itemDate).toLocaleDateString() : 'N/A';
+                          })()}</p>
                           {item.purpose && <p className="mt-1">Purpose: {item.purpose}</p>}
                         </div>
 
@@ -607,7 +634,18 @@ export function Approvals() {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Date</p>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {selectedItem?.paymentDate ? new Date(selectedItem.paymentDate).toLocaleDateString() : selectedItem.requestedDate ? new Date(selectedItem.requestedDate).toLocaleDateString() : selectedItem.createdAt ? new Date(selectedItem.createdAt).toLocaleDateString() : ''}
+                        {(() => {
+                          const dateValue =
+                            selectedItem.paymentDate ||
+                            selectedItem.payment_date ||
+                            selectedItem.requestedDate ||
+                            selectedItem.requested_date ||
+                            selectedItem.createdAt ||
+                            selectedItem.created_at ||
+                            selectedItem.updatedAt ||
+                            selectedItem.updated_at;
+                          return dateValue ? new Date(dateValue).toLocaleDateString() : 'N/A';
+                        })()}
                       </p>
                     </div>
                     <div>
@@ -666,26 +704,67 @@ export function Approvals() {
 
                   {selectedItem.proofUrl && (
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        Payment Proof
-                      </p>
-                      {selectedItem.proofUrl.toLowerCase().endsWith('.pdf') ? (
-                        <a
-                          href={selectedItem.proofUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Payment Proof</p>
+                      <div
+                        className="relative rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden group cursor-pointer"
+                        onClick={() => window.open(selectedItem.proofUrl, '_blank')}
+                        title="Click to open full proof in new tab"
+                      >
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            const link = document.createElement('a');
+                            link.href = selectedItem.proofUrl;
+                            link.download = '';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="absolute right-2 top-2 z-10 p-2 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-700 shadow-md transition-all group-hover:scale-110"
+                          title="Download proof file"
+                          aria-label="Download proof"
                         >
-                          <FileText className="w-4 h-4" />
-                          View PDF Proof
-                        </a>
-                      ) : (
-                        <img
-                          src={selectedItem.proofUrl}
-                          alt="Payment proof"
-                          className="w-full h-48 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
-                        />
-                      )}
+                          <Download className="w-4 h-4 text-gray-800 dark:text-white" />
+                        </button>
+
+                        {selectedItem.proofUrl.toLowerCase().endsWith('.pdf') ? (
+                          <>
+                            {!pdfLoadError ? (
+                              <iframe
+                                src={selectedItem.proofUrl}
+                                title="Payment proof PDF"
+                                className="w-full h-72"
+                                onError={() => setPdfLoadError(true)}
+                              />
+                            ) : (
+                              <div className="w-full h-72 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                                <div className="text-center">
+                                  <FileText className="w-12 h-12 mx-auto text-gray-400 mb-2" />
+                                  <p className="text-sm text-gray-600 dark:text-gray-300">PDF cannot be previewed</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use download button to view</p>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <img
+                            src={selectedItem.proofUrl}
+                            alt="Payment proof"
+                            className="w-full h-64 object-contain cursor-zoom-in"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setZoomedImage(selectedItem.proofUrl);
+                            }}
+                            title="Click to zoom image"
+                          />
+                        )}
+
+                        <div className="absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Click to open full proof.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -706,6 +785,57 @@ export function Approvals() {
                     <span>{getActionHandlers(selectedItem).approveLabel || "Approve"}</span>
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Zoom Lightbox Modal */}
+      <AnimatePresence>
+        {zoomedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => {
+              setZoomedImage(null);
+              setPdfLoadError(false);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-4xl w-full max-h-[90vh] flex items-center justify-center"
+            >
+              <button
+                onClick={() => {
+                  setZoomedImage(null);
+                  setPdfLoadError(false);
+                }}
+                className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+                aria-label="Close zoom"
+              >
+                <XCircle className="w-8 h-8" />
+              </button>
+              <img
+                src={zoomedImage}
+                alt="Zoomed proof"
+                className="w-full h-full object-contain rounded-lg"
+              />
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                <p className="text-white text-sm">Press ESC or click outside to close</p>
+                <a
+                  href={zoomedImage}
+                  download
+                  className="flex items-center gap-2 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </a>
               </div>
             </motion.div>
           </motion.div>
