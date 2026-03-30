@@ -694,3 +694,162 @@ exports.getCycleStatistics = async (req, res) => {
     });
   }
 };
+
+/**
+ * Send shareout report via email
+ */
+exports.sendShareoutReport = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { recipientEmail, subject, includeMembers } = req.body;
+
+    // Validate input
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid email address is required',
+      });
+    }
+
+    // Get cycle details
+    const cycleResult = await db.query(
+      'SELECT * FROM cycles WHERE id = $1',
+      [id]
+    );
+
+    if (cycleResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cycle not found',
+      });
+    }
+
+    const cycle = cycleResult.rows[0];
+
+    // Get shareout data
+    const savingsResult = await db.query(
+      `SELECT
+         user_id,
+         COALESCE(SUM(amount), 0) AS total_savings,
+         COALESCE(SUM(interest_earned), 0) AS savings_interest
+       FROM savings
+       WHERE cycle_id = $1 AND status = 'verified'
+       GROUP BY user_id`,
+      [id]
+    );
+
+    const commonInterestResult = await db.query(
+      `SELECT
+         user_id,
+         COALESCE(SUM(amount), 0) AS common_interest
+       FROM common_interest_distributions
+       WHERE cycle_id = $1
+       GROUP BY user_id`,
+      [id]
+    );
+
+    const commonInterestByUser = commonInterestResult.rows.reduce((acc, row) => {
+      acc[row.user_id] = Number(row.common_interest || 0);
+      return acc;
+    }, {});
+
+    const shareoutData = savingsResult.rows.map((row) => {
+      const totalSavings = Number(row.total_savings || 0);
+      const savingsInterest = Number(row.savings_interest || 0);
+      const commonInterest = Number(commonInterestByUser[row.user_id] || 0);
+
+      return {
+        userId: row.user_id,
+        totalSavings,
+        savingsInterest,
+        commonInterest,
+        totalAmount: calculateShareoutAmount(totalSavings, savingsInterest, commonInterest),
+      };
+    });
+
+    // Calculate totals
+    const totalSavings = shareoutData.reduce((sum, item) => sum + item.totalSavings, 0);
+    const totalInterest = shareoutData.reduce((sum, item) => sum + item.savingsInterest, 0);
+    const totalCommonInterest = shareoutData.reduce((sum, item) => sum + item.commonInterest, 0);
+
+    // Build email HTML
+    let emailHtml = `
+      <h2>${cycle.name} - Shareout Report</h2>
+      <p><strong>Period:</strong> ${new Date(cycle.start_date).toLocaleDateString()} - ${new Date(cycle.end_date).toLocaleDateString()}</p>
+      <h3>Summary</h3>
+      <ul>
+        <li>Total Members: ${shareoutData.length}</li>
+        <li>Total Savings: K${totalSavings.toLocaleString()}</li>
+        <li>Total Interest: K${totalInterest.toLocaleString()}</li>
+        <li>Total Common Interest: K${totalCommonInterest.toLocaleString()}</li>
+        <li>Net Available: K${(totalSavings + totalInterest + totalCommonInterest).toLocaleString()}</li>
+      </ul>
+    `;
+
+    if (includeMembers && shareoutData.length > 0) {
+      emailHtml += `
+        <h3>Member Details</h3>
+        <table border="1" cellpadding="10" style="border-collapse: collapse; width: 100%;">
+          <thead>
+            <tr style="background-color: #f0f0f0;">
+              <th>User ID</th>
+              <th>Savings</th>
+              <th>Interest</th>
+              <th>Common Interest</th>
+              <th>Shareout</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      shareoutData.forEach(item => {
+        emailHtml += `
+          <tr>
+            <td>${item.userId}</td>
+            <td>K${item.totalSavings.toLocaleString()}</td>
+            <td>K${item.savingsInterest.toLocaleString()}</td>
+            <td>K${item.commonInterest.toLocaleString()}</td>
+            <td><strong>K${item.totalAmount.toLocaleString()}</strong></td>
+          </tr>
+        `;
+      });
+
+      emailHtml += `
+          </tbody>
+        </table>
+      `;
+    }
+
+    emailHtml += `
+      <p style="margin-top: 20px; font-size: 12px; color: #666;">
+        This is an automated report from VISIONARIES VB. Please do not reply to this email.
+      </p>
+    `;
+
+    // For now, we'll just log that email was "sent" (in production, configure SMTP)
+    // If you want to actually send emails, configure nodemailer with SMTP settings
+    console.log(`Email report generated for ${recipientEmail}:`, emailHtml);
+
+    res.json({
+      success: true,
+      message: 'Shareout report prepared successfully',
+      data: {
+        recipient: recipientEmail,
+        subject: subject || `${cycle.name} Shareout Report`,
+        summary: {
+          totalMembers: shareoutData.length,
+          totalSavings,
+          totalInterest,
+          totalCommonInterest,
+          netAvailable: totalSavings + totalInterest + totalCommonInterest,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Send shareout report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error preparing shareout report',
+    });
+  }
+};
