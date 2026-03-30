@@ -19,6 +19,7 @@ import { CycleManagement } from './pages/CycleManagement'
 import { RecordRepayment } from './pages/RecordRepayment'
 import { Approvals } from './pages/Approvals'
 import { ShareoutReport } from './pages/ShareoutReport'
+import { MonthlyReport } from './pages/MonthlyReport'
 
 import './App.css'
 
@@ -49,6 +50,7 @@ function App() {
               <Route path='record-repayment/:memberId?' element={<RecordRepayment />} />
               <Route path='shareout' element={<ShareoutReport />} />
               <Route path='shareout-report' element={<ShareoutReport />} />
+              <Route path='monthly-report' element={<MonthlyReport />} />
               <Route element={<AdminRoute />}>
                 <Route path='approvals' element={<Approvals />} />
               </Route>

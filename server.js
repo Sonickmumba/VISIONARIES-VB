@@ -19,6 +19,7 @@ const cycleRoutes = require('./routes/cycleRoutes');
 const loanRoutes = require('./routes/loanRoutes');
 const savingsRoutes = require('./routes/savingsRoutes');
 const userRoutes = require('./routes/userRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 const { authenticate } = require('./middleware/auth');
 const app = express();
 require('dotenv').config();
@@ -159,6 +160,7 @@ app.use('/api/cycles', cycleRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/savings', savingsRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Serve static React files in production
 const path = require('path');

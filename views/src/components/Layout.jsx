@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { path: "/dashboard/disburse-loan", label: "Disburse Loan", icon: DollarSign },
   { path: "/dashboard/record-repayment", label: "Repayments", icon: HandCoins },
   { path: "/dashboard/shareout", label: "Shareout", icon: FileText },
+  { path: "/dashboard/monthly-report", label: "Monthly Report", icon: Calendar, adminOnly: true },
   { path: "/dashboard/approvals", label: "Approvals", icon: FileText, adminOnly: true },
   { path: "/dashboard/groups", label: "Groups", icon: Building2, adminOnly: true },
   { path: "/dashboard/help", label: "Help", icon: HelpCircle },
