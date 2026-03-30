@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { ArrowLeft, Download, Mail, Calendar, TrendingUp, Users, DollarSign, PiggyBank, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Mail, Calendar, TrendingUp, Users, DollarSign, PiggyBank, Loader2, Calculator } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -125,6 +125,60 @@ export function MonthlyReport() {
     }
   };
 
+  // Compute member financial summary
+  const INTEREST_RATE = 0.15;
+  const LOAN_THRESHOLD = 20000;
+
+  const memberFinancialSummary = useMemo(() => {
+    if (!reportData?.memberActivity) return [];
+
+    const totalSavingsPool = reportData.savings.totalAmount;
+    const totalLoansDisbursed = reportData.loans.disbursed.totalAmount;
+    const unborrowed = Math.max(0, totalSavingsPool - totalLoansDisbursed);
+    const commonInterestPool = unborrowed * INTEREST_RATE;
+
+    // Members eligible for common interest: borrowed < K20,000
+    const eligibleMembers = reportData.memberActivity.filter(
+      (m) => m.monthlyLoans < LOAN_THRESHOLD
+    );
+    const totalShortfall = eligibleMembers.reduce(
+      (sum, m) => sum + (LOAN_THRESHOLD - m.monthlyLoans),
+      0
+    );
+
+    return reportData.memberActivity.map((member) => {
+      const savingsAmount = member.monthlySavings;
+      const savingsInterest = savingsAmount * INTEREST_RATE;
+      const totalSaved = savingsAmount + savingsInterest;
+
+      const loanAmount = member.monthlyLoans;
+      const loanInterest = loanAmount * INTEREST_RATE;
+      const totalLoanToPay = loanAmount + loanInterest;
+
+      const isEligible = loanAmount < LOAN_THRESHOLD;
+      let commonInterest = 0;
+      if (isEligible && totalShortfall > 0) {
+        const shortfall = LOAN_THRESHOLD - loanAmount;
+        commonInterest = (shortfall / totalShortfall) * commonInterestPool;
+      }
+
+      const totalToRepay = totalLoanToPay + commonInterest;
+
+      return {
+        id: member.id,
+        name: member.name,
+        memberNo: member.memberNo,
+        savingsAmount,
+        totalSaved: Math.round(totalSaved),
+        loanAmount,
+        totalLoanToPay: Math.round(totalLoanToPay),
+        commonInterest: Math.round(commonInterest),
+        isEligible,
+        totalToRepay: Math.round(totalToRepay),
+      };
+    });
+  }, [reportData, INTEREST_RATE, LOAN_THRESHOLD]);
+
   // Generate PDF content
   const generatePDFContent = () => {
     if (!reportData) return '';
@@ -226,6 +280,30 @@ export function MonthlyReport() {
             </table>
           </div>
         </div>
+
+        <h2 style="color: #1f2937; margin-top: 30px; margin-bottom: 15px; font-size: 16px;">Member Financial Summary</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
+          <thead>
+            <tr style="background-color: #f3f4f6;">
+              <th style="padding: 8px; text-align: left; border-bottom: 2px solid #d1d5db; font-weight: bold;">Member</th>
+              <th style="padding: 8px; text-align: right; border-bottom: 2px solid #d1d5db; font-weight: bold;">Total Saved (+ Interest)</th>
+              <th style="padding: 8px; text-align: right; border-bottom: 2px solid #d1d5db; font-weight: bold;">Common Interest</th>
+              <th style="padding: 8px; text-align: right; border-bottom: 2px solid #d1d5db; font-weight: bold;">Total Loan to Pay</th>
+              <th style="padding: 8px; text-align: right; border-bottom: 2px solid #d1d5db; font-weight: bold;">Total to Repay</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${memberFinancialSummary.map((m) => `
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${m.name} (${m.memberNo})</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #059669;">K ${m.totalSaved.toLocaleString()}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; color: ${m.isEligible ? '#7c3aed' : '#9ca3af'};">${m.isEligible ? 'K ' + m.commonInterest.toLocaleString() : 'N/A'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #dc2626;">K ${m.totalLoanToPay.toLocaleString()}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">K ${m.totalToRepay.toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
 
         <p style="margin-top: 40px; font-size: 10px; color: #6b7280; text-align: center;">
           Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
@@ -521,6 +599,94 @@ export function MonthlyReport() {
                 </div>
               </motion.div>
             </div>
+
+            {/* Member Financial Summary Table */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-8"
+            >
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                <Calculator className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Member Financial Summary</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Member
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Total Saved (+ Interest)
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Common Interest
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Total Loan to Pay
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Total to Repay
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {memberFinancialSummary.map((member, index) => (
+                      <tr key={member.id} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          {member.name}
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{member.memberNo}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-green-600 dark:text-green-400">
+                          K {member.totalSaved.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">
+                          {member.isEligible ? (
+                            <span className="text-purple-600 dark:text-purple-400">
+                              K {member.commonInterest.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-red-600 dark:text-red-400">
+                          K {member.totalLoanToPay.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
+                          K {member.totalToRepay.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {memberFinancialSummary.length > 0 && (
+                    <tfoot className="bg-gray-100 dark:bg-gray-700 border-t-2 border-gray-300 dark:border-gray-500">
+                      <tr>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">Totals</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600 dark:text-green-400">
+                          K {memberFinancialSummary.reduce((sum, m) => sum + m.totalSaved, 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-purple-600 dark:text-purple-400">
+                          K {memberFinancialSummary.reduce((sum, m) => sum + m.commonInterest, 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-red-600 dark:text-red-400">
+                          K {memberFinancialSummary.reduce((sum, m) => sum + m.totalLoanToPay, 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-white">
+                          K {memberFinancialSummary.reduce((sum, m) => sum + m.totalToRepay, 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+              <div className="px-6 py-3 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  <strong>Note:</strong> Total Saved includes 15% interest on savings. Common Interest applies to members who borrowed less than K20,000. Total Loan to Pay includes 15% loan interest.
+                </p>
+              </div>
+            </motion.div>
 
             {/* Hidden PDF content */}
             <div ref={reportRef} className="hidden">
