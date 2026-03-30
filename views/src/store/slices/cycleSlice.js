@@ -42,6 +42,19 @@ export const fetchCycleStatistics = createAsyncThunk(
   }
 );
 
+/** Fetch shareout for a cycle */
+export const fetchShareoutByCycle = createAsyncThunk(
+  'cycles/fetchShareout',
+  async (cycleId, { rejectWithValue }) => {
+    try {
+      const { data: res } = await axios.post(`/api/cycles/${cycleId}/calculate-shareout`);
+      return res.data?.data?.shareouts || [];
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to calculate shareout');
+    }
+  }
+);
+
 /** Create a new cycle */
 export const createCycleAsync = createAsyncThunk(
   'cycles/create',
@@ -75,6 +88,9 @@ const cycleSlice = createSlice({
   initialState: {
     cycles: [],
     currentCycle: null,
+    shareoutData: [],
+    shareoutLoading: false,
+    shareoutError: null,
     loading: false,
     error: null,
   },
@@ -116,8 +132,19 @@ const cycleSlice = createSlice({
       .addCase(fetchCycleById.rejected, (state, { payload }) => {
         state.loading = false;
         state.error = payload;
+      })      // ── fetchShareoutByCycle ─────────────────────────────────────────────────
+      .addCase(fetchShareoutByCycle.pending, (state) => {
+        state.shareoutLoading = true;
+        state.shareoutError = null;
       })
-      // ── createCycleAsync ───────────────────────────────────────────────
+      .addCase(fetchShareoutByCycle.fulfilled, (state, { payload }) => {
+        state.shareoutLoading = false;
+        state.shareoutData = payload;
+      })
+      .addCase(fetchShareoutByCycle.rejected, (state, { payload }) => {
+        state.shareoutLoading = false;
+        state.shareoutError = payload;
+      })      // ── createCycleAsync ───────────────────────────────────────────────
       .addCase(createCycleAsync.fulfilled, (state, { payload }) => {
         state.cycles.unshift(payload);
         if (payload.status === 'active') {
