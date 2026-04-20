@@ -127,9 +127,10 @@ export function HelpPage() {
               <div>
                 <h3 className="font-semibold text-blue-900 mb-2">What is Common Interest?</h3>
                 <p className="text-sm text-blue-800">
-                  Common interest is the <strong>interest earned on money that was NOT loaned out</strong>. 
-                  This interest is shared among members who borrowed less than K20,000 (and didn't pay K3,000 upfront), 
-                  proportional to their shortfall.
+                  Common interest is the <strong>interest earned on money that was NOT loaned out, total amount saved by member plus the total membership and social fund minus the total money loaned out</strong>. 
+                  This interest is shared among members who borrowed any money from the fund for the first 3 month (meaning that each member who never borrowed will pay common interest). After 3 months, if a member borrowed less than K20,000 also must pay common interest (and didn't pay K3,000 upfront), 
+                  proportional to their shortfall.<br />
+                  <strong className="text-purple-600">Example:</strong> If the common interest pool is K46,500 and you had a K10,000 shortfall, you would pay (K10,000 / Total Shortfall) × K46,500 as your common interest charge.
                 </p>
               </div>
             </div>
